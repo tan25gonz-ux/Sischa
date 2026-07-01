@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Facturación y Cierre - Sucursal</title>
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+        import { getFirestore, doc, getDoc, setDoc, collection, addDoc, writeBatch, serverTimestamp, query, where, getDocs } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyCi409CkmXBbun7-POejbVaIiThK2nZ1JY",
+            authDomain: "prestamos-18dd8.firebaseapp.com",
+            projectId: "prestamos-18dd8",
+            storageBucket: "prestamos-18dd8.firebasestorage.app",
+            messagingSenderId: "921713515466",
+            appId: "1:921713515466:web:0e2bcb5d67067068570d33"
+        };
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const auth = getAuth(app);
+
+        let preciosTrabajador = {};
+        let facturasDelDia = []; 
+        let materialesFacturaActual = []; 
+        let uidTrabajador = null;
+        let totalAcumuladoComprasDia = 0;
+        let sucursalActual = "Perez";
+
+        onAuthStateChanged(auth, async (user) => {
+            if (user) {
+                uidTrabajador = user.uid;
+                const emailUsuario = user.email ? user.email.toLowerCase().trim() : "";
+
+                if (emailUsuario === "grupoperez@gmail.com") {
+                    sucursalActual = "Perez";
+                } else if (emailUsuario === "grupoparaiso@gmail.com") {
+                    sucursalActual = "Paraiso";
+                } else if (emailUsuario === "grupocartago@gmail.com") {
+                    sucursalActual = "Cartago";
+                } else {
+                    sucursalActual = "Desconocida";
+                }
+
+                document.getElementById('login-section').style.display = 'none';
+                document.getElementById('modulo-principal').style.display = 'grid';
+                document.getElementById('sucursal-txt').innerText = sucursalActual;
+                
+                await cargarPreciosDesdeFirebase();
+                await calcularDeudaTotal();
+            } else {
+                document.getElementById('login-section').style.display = 'block';
+                document.getElementById('modulo-principal').style.display = 'none';
+            }
+        });
+
+        async function cargarPreciosDesdeFirebase() {
+            const pDoc = await getDoc(doc(db, "config_precios", uidTrabajador));
+            preciosTrabajador = pDoc.exists() ? (pDoc.data().materiales || {}) : {};
+            cargarTablaPreciosVisual();
+            actualizarPrecioUnitario();
+            cargarSelectEdicionPrecios();
+        }
+
+        async function calcularDeudaTotal() {
+            try {
+                const q = query(collection(db, "movimientos_cuenta"), where("sucursal", "==", sucursalActual));
+                const querySnapshot = await getDocs(q);
+                
+                let deudaCalculada = 0;
+                
+                querySnapshot.forEach((doc) => {
+                    const data = doc.data();
+                    const monto = parseFloat(data.monto) || 0;
+                    
+                    if (data.tipo === "Salida_Venta") {
+                        deudaCalculada += monto; 
+                    } else if (data.tipo === "Deposito") {
+                        deudaCalculada -= monto; 
+                    }
+                });
+                
+                document.getElementById('deudaTotalTxt').innerText = deudaCalculada.toLocaleString();
+            } catch (error) {
+                console.error("Error calculando la deuda: ", error);
+            }
+        }
+
+        window.login = async () => {
+            try {
+                await signInWithEmailAndPassword(auth, document.getElementById('email').value, document.getElementById('pass').value);
+            } catch(e) { alert("Error: " + e.message); }
+        };
+
+        window.logout = () => signOut(auth);
+
+        function cargarTablaPreciosVisual() {
+            const tbody = document.getElementById('body-lista-precios');
+            tbody.innerHTML = "";
+            let tienePrecios = false;
+            for (const [material, precio] of Object.entries(preciosTrabajador)) {
+                if (precio > 0) {
+                    tienePrecios = true;
+                    tbody.innerHTML += `<tr><td>${material}</td><td><b>₡${precio}</b></td></tr>`;
+                }
+            }
+            if(!tienePrecios) {
+                tbody.innerHTML = `<tr><td colspan="2" style="text-align:center; color:#999;">No hay precios configurados.</td></tr>`;
+            }
+        }
+
+        function cargarSelectEdicionPrecios() {
+            const selectEdicion = document.getElementById('editMatSelect');
+            const selectCompra = document.getElementById('matSelect');
+            selectEdicion.innerHTML = selectCompra.innerHTML;
+            actualizarPrecioEnEdicion();
+        }
+
+        window.actualizarPrecioEnEdicion = () => {
+            const mat = document.getElementById('editMatSelect').value;
+            document.getElementById('editMatPrecio').value = preciosTrabajador[mat] || 0;
+        };
+
+        window.guardarPrecioFirebase = async function() {
+            const mat = document.getElementById('editMatSelect').value;
+            const nuevoPrecio = parseFloat(document.getElementById('editMatPrecio').value) || 0;
+            if(nuevoPrecio < 0) return;
+
+            const btn = document.getElementById('btnGuardarPrecio');
+            btn.disabled = true;
+
+            preciosTrabajador[mat] = nuevoPrecio;
+            try {
+                await setDoc(doc(db, "config_precios", uidTrabajador), { materiales: preciosTrabajador }, { merge: true });
+                alert(`✅ Precio actualizado.`);
+                cargarTablaPreciosVisual();
+                actualizarPrecioUnitario();
+            } catch (error) { alert("Error: " + error.message); }
+            finally { btn.disabled = false; btn.innerText = "💾 Guardar Precio"; }
+        };
+
+        window.toggleSeccionPrecios = () => {
+            const div = document.getElementById('seccion-editar-precios');
+            div.style.display = (div.style.display === 'none') ? 'block' : 'none';
+        };
+
+        window.actualizarPrecioUnitario = () => {
+            const mat = document.getElementById('matSelect').value;
+            const precioUnitario = preciosTrabajador[mat] || 0;
+            document.getElementById('matPrecioUnitario').value = precioUnitario;
+            calcularTotalMaterial();
+        };
+
+        window.calcularTotalMaterial = () => {
+            const precio = parseFloat(document.getElementById('matPrecioUnitario').value) || 0;
+            const kg = parseFloat(document.getElementById('matKg').value) || 0;
+            document.getElementById('matTotalMaterial').value = (precio * kg).toFixed(0);
+        };
+
+        window.validarCedulaTSE = async function() {
+            const cedulaInput = document.getElementById('cedulaCliente').value.trim();
+            const btn = document.getElementById('btnValidarCed');
+            const cedulaLimpia = cedulaInput.replace(/-/g, '');
+
+            if(cedulaLimpia.length < 9) { alert("Ingrese 9 dígitos."); return; }
+            btn.innerText = "⚡..."; btn.disabled = true;
+
+            try {
+                const respuesta = await fetch(`https://apis.gometa.org/cedulas/${cedulaLimpia}`);
+                if (respuesta.ok) {
+                    const data = await respuesta.json();
+                    if (data && data.nombre) { document.getElementById('nombreCliente').value = data.nombre; }
+                    else { alert("⚠️ No encontrada."); }
+                }
+            } catch (error) { alert("Error al conectar con el padrón."); }
+            finally { btn.innerText = "🔎 Validar"; btn.disabled = false; }
+        };
+
+        window.agregarMaterialAFactura = () => {
+            const material = document.getElementById('matSelect').value;
+            const kilos = parseFloat(document.getElementById('matKg').value);
+            const precio_u = parseFloat(document.getElementById('matPrecioUnitario').value);
+            const total = parseFloat(document.getElementById('matTotalMaterial').value);
+
+            if (!kilos || total <= 0 || !precio_u) {
+                alert("⚠️ Ingrese pesajes válidos y un precio mayor a 0.");
+                return;
+            }
+
+            materialesFacturaActual.push({ material, kilos, precio_unitario: precio_u, total_pago: total });
+            actualizarTablaFacturaActual();
+
+            document.getElementById('matKg').value = "";
+            document.getElementById('matTotalMaterial').value = "0";
+        };
+
+        function actualizarTablaFacturaActual() {
+            const tbody = document.getElementById('body-materiales-actuales');
+            tbody.innerHTML = "";
+            let subtotal = 0;
+
+            materialesFacturaActual.forEach((item, index) => {
+                subtotal += item.total_pago;
+                tbody.innerHTML += `
+                    <tr>
+                        <td>${item.material}</td>
+                        <td>${item.kilos} kg</td>
+                        <td>₡${item.precio_unitario}</td>
+                        <td><b>₡${item.total_pago.toLocaleString()}</b></td>
+                        <td><button onclick="eliminarMaterialActual(${index})" class="btn-del">x</button></td>
+                    </tr>
+                `;
+            });
+            document.getElementById('subtotalFacturaTxt').innerText = subtotal.toLocaleString();
+        }
+
+        window.eliminarMaterialActual = (index) => {
+            materialesFacturaActual.splice(index, 1);
+            actualizarTablaFacturaActual();
+        };
+
+        window.guardarFacturaCompletaCliente = () => {
+            const cedula = document.getElementById('cedulaCliente').value.trim();
+            const nombre = document.getElementById('nombreCliente').value.trim();
+            const numFactura = document.getElementById('numFacturaCliente').value.trim();
+
+            if (!cedula || !nombre || !numFactura) {
+                alert("⚠️ Debe ingresar la Cédula, el Nombre y el Número de Factura.");
+                return;
+            }
+            if (materialesFacturaActual.length === 0) {
+                alert("⚠️ Agregue al menos un material a la factura del cliente.");
+                return;
+            }
+
+            let totalFactura = materialesFacturaActual.reduce((sum, item) => sum + item.total_pago, 0);
+
+            facturasDelDia.push({
+                num_factura: numFactura,
+                cedula,
+                nombre,
+                detalles_materiales: [...materialesFacturaActual],
+                total_factura: totalFactura
+            });
+
+            actualizarTablaGeneralDia();
+
+            materialesFacturaActual = [];
+            actualizarTablaFacturaActual();
+            document.getElementById('cedulaCliente').value = "";
+            document.getElementById('nombreCliente').value = "";
+            document.getElementById('numFacturaCliente').value = "";
+            document.getElementById('cedulaCliente').focus();
+        };
+
+        function actualizarTablaGeneralDia() {
+            const tbody = document.getElementById('body-facturas-agregadas');
+            tbody.innerHTML = "";
+            totalAcumuladoComprasDia = 0;
+
+            // Objeto auxiliar para acumular totales agrupados por material
+            let acumuladoMateriales = {};
+
+            facturasDelDia.forEach((fact, index) => {
+                totalAcumuladoComprasDia += fact.total_factura;
+                let resumenMats = fact.detalles_materiales.map(m => `${m.material} (${m.kilos}kg)`).join(', ');
+
+                tbody.innerHTML += `
+                    <tr>
+                        <td><b>Fact: #${fact.num_factura}</b></td>
+                        <td><b>${fact.nombre}</b><br><small style="color:#555">${fact.cedula}</small></td>
+                        <td style="max-width: 250px; font-size:11px; color:#444;">${resumenMats}</td>
+                        <td><b>₡${fact.total_factura.toLocaleString()}</b></td>
+                        <td><button onclick="eliminarFacturaGeneral(${index})" class="btn-del">x</button></td>
+                    </tr>
+                `;
+
+                // Sumar al desglose de inventario del día
+                fact.detalles_materiales.forEach(m => {
+                    if (!acumuladoMateriales[m.material]) {
+                        acumuladoMateriales[m.material] = { kilos: 0, costo: 0 };
+                    }
+                    acumuladoMateriales[m.material].kilos += m.kilos;
+                    acumuladoMateriales[m.material].costo += m.total_pago;
+                });
+            });
+
+            document.getElementById('totalFacturasTxt').innerText = totalAcumuladoComprasDia.toLocaleString();
+            document.getElementById('pagoMat').value = totalAcumuladoComprasDia;
+
+            // Renderizar la tabla dinámica de totales acumulados por material
+            renderizarTablaAcumuladosDia(acumuladoMateriales);
+        }
+
+        function renderizarTablaAcumuladosDia(acumulado) {
+            const tbody = document.getElementById('body-materiales-totales-dia');
+            tbody.innerHTML = "";
+
+            if (Object.keys(acumulado).length === 0) {
+                tbody.innerHTML = `<tr><td colspan="3" style="text-align:center; color:#999;">Aún no hay materiales guardados en las facturas de hoy.</td></tr>`;
+                return;
+            }
+
+            for (const [material, datos] of Object.entries(acumulado)) {
+                tbody.innerHTML += `
+                    <tr>
+                        <td><b>${material}</b></td>
+                        <td style="color:#1a73e8; font-weight:bold;">${datos.kilos.toFixed(1)} kg</td>
+                        <td><b>₡${datos.costo.toLocaleString()}</b></td>
+                    </tr>
+                `;
+            }
+        }
+
+        window.eliminarFacturaGeneral = (index) => {
+            facturasDelDia.splice(index, 1);
+            actualizarTablaGeneralDia();
+        };
+
+        window.enviarTodoFirebase = async function() {
+            if (facturasDelDia.length === 0) {
+                alert("❌ No hay facturas registradas hoy para cerrar.");
+                return;
+            }
+            if(!confirm("¿Desea enviar el cierre total y las facturas al sistema?")) return;
+
+            const btn = document.getElementById('btnEnviarTodo');
+            btn.disabled = true; btn.innerText = "Subiendo Datos...";
+
+            const fecha = document.getElementById('fecha').value;
+
+            try {
+                const batch = writeBatch(db);
+
+                const cierreRef = doc(collection(db, "revisiones_faltantes")); 
+                batch.set(cierreRef, {
+                    uid_trabajador: uidTrabajador, sucursal: sucursalActual, fecha,
+                    caja_inicio: parseFloat(document.getElementById('cajaInicio').value) || 0,
+                    total_ventas: parseFloat(document.getElementById('ventas').value) || 0,
+                    pago_materiales: totalAcumuladoComprasDia,
+                    gastos_facturas: parseFloat(document.getElementById('gastosFact').value) || 0,
+                    cierre_mano: parseFloat(document.getElementById('cierreMano').value) || 0,
+                    estado: "Pendiente", timestamp: serverTimestamp()
+                });
+
+                facturasDelDia.forEach((factura) => {
+                    const factRef = doc(collection(db, "facturas_compras"));
+                    batch.set(factRef, {
+                        ...factura,
+                        cierre_id: cierreRef.id,
+                        sucursal: sucursalActual, fecha, uid_trabajador: uidTrabajador,
+                        timestamp: serverTimestamp()
+                    });
+                });
+
+                await batch.commit();
+                alert("✅ Todo guardado con éxito.");
+                location.reload();
+            } catch (e) {
+                alert("Error: " + e.message);
+                btn.disabled = false; btn.innerText = "🚀 ENVIAR CIERRE Y FACTURAS DEL DÍA";
+            }
+        };
+
+        window.guardarMovimientoCuenta = async function() {
+            const tipo = document.getElementById('tipoMovimiento').value;
+            const monto = parseFloat(document.getElementById('montoMovimiento').value);
+            const fechaMov = document.getElementById('fechaMovimiento').value;
+
+            if(!monto || monto <= 0 || !fechaMov) {
+                alert("⚠️ Por favor asigne una fecha y un monto válido.");
+                return;
+            }
+
+            const btn = document.getElementById('btnGuardarMov');
+            btn.disabled = true; btn.innerText = "Guardando...";
+
+            try {
+                await addDoc(collection(db, "movimientos_cuenta"), {
+                    uid_trabajador: uidTrabajador,
+                    sucursal: sucursalActual, 
+                    tipo: tipo, 
+                    monto: monto,
+                    fecha_operacion: fechaMov,
+                    timestamp: serverTimestamp()
+                });
+
+                alert(`✅ ${tipo} de ₡${monto.toLocaleString()} registrado perfectamente.`);
+                document.getElementById('montoMovimiento').value = "";
+                await calcularDeudaTotal(); 
+            } catch (error) {
+                alert("Error al guardar el movimiento: " + error.message);
+            } finally {
+                btn.disabled = false; btn.innerText = "Registrar en Cuenta Externa";
+            }
+        };
+
+    </script>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; padding: 15px; background: #f0f2f5; margin: 0; }
+        .login-box { background: white; padding: 30px; max-width: 400px; margin: 80px auto; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); text-align: center; }
+        .login-box input { width: 100%; padding: 10px; margin: 10px 0; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; }
+        .grid-layout { display: grid; grid-template-columns: 1fr 320px; gap: 20px; max-width: 1300px; margin: auto; }
+        .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+        h3, h4 { margin-top: 0; color: #1a73e8; }
+        label { font-size: 11px; font-weight: bold; color: #555; display: block; margin-top: 8px; }
+        input, select { width: 100%; padding: 8px; margin-top: 4px; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; font-size: 14px; }
+        .seccion-interna { background: #f8f9fa; padding: 15px; border-radius: 8px; border: 1px solid #e2e8f0; margin-bottom: 15px; }
+        .cedula-row { display: grid; grid-template-columns: 1fr 85px; gap: 5px; }
+        .btn-orange { background: #e67e22; color: white; border: none; margin-top: 4px; border-radius: 6px; font-weight: bold; cursor: pointer; }
+        .grid-mat { display: grid; grid-template-columns: 1fr 1fr 1fr 120px; gap: 10px; align-items: end; }
+        .btn-blue { background: #1a73e8; color: white; border: none; padding: 10px; border-radius: 6px; font-weight: bold; width: 100%; margin-top: 10px; cursor: pointer; }
+        .btn-del { background: #ff5252; color: white; border: none; border-radius: 4px; padding: 2px 6px; cursor: pointer; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 12px; }
+        th { text-align: left; background: #eee; padding: 6px; }
+        td { padding: 6px; border-bottom: 1px solid #eee; }
+        .subtotal-banner { text-align: right; font-weight: bold; padding: 6px; color: #1a73e8; font-size: 13px; background: #e8f0fe; border-radius: 4px; margin-top: 5px; }
+        .total-banner { text-align: right; font-weight: bold; padding: 10px; color: #2e7d32; font-size: 15px; background: #e8f5e9; border-radius: 6px; margin-top: 5px; }
+        .btn-green { width: 100%; padding: 15px; background: #2e7d32; color: white; border: none; border-radius: 8px; font-weight: bold; font-size: 16px; cursor: pointer; margin-top: 15px; }
+        .btn-save-fact { background: #2e7d32; color: white; border: none; padding: 12px; border-radius: 6px; font-weight: bold; width: 100%; margin-top: 12px; cursor: pointer; font-size: 14px; }
+        .mini-deuda-box { float: right; background: #fff5f5; border: 1px solid #feb2b2; padding: 5px 12px; border-radius: 6px; font-size: 12px; color: #c53030; font-weight: bold; margin-top: -5px; }
+        .panel-lateral { background: white; padding: 15px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); height: max-content; }
+        .scroll-precios { max-height: 300px; overflow-y: auto; border: 1px solid #eee; margin-bottom: 10px; }
+        .btn-work { background: #6b46c1; color: white; border: none; padding: 8px; border-radius: 6px; font-weight: bold; width: 100%; cursor: pointer; }
+        @media(max-width: 850px) { .grid-layout { grid-template-columns: 1fr; } .mini-deuda-box { float: none; margin-top: 5px; display: inline-block; } }
+    </style>
+</head>
+<body>
+
+    <div id="login-section" class="login-box" style="display:none;">
+        <h2>📝 Ingreso de Sucursal</h2>
+        <input type="email" id="email" placeholder="Correo de la sucursal">
+        <input type="password" id="pass" placeholder="Contraseña">
+        <button class="btn-blue" onclick="login()">Ingresar al Sistema</button>
+    </div>
+
+    <div id="modulo-principal" class="grid-layout" style="display:none;">
+        
+        <div class="card">
+            <button onclick="logout()" style="float: right; background:#ff5252; color:white; border:none; border-radius:4px; padding:5px 10px; cursor:pointer; font-weight:bold; margin-left: 10px;">Cerrar Sesión</button>
+            <h3>📍 Sucursal: <span id="sucursal-txt" style="color:#2e7d32">...</span></h3>
+            
+            <div style="max-width: 200px; margin-bottom:15px;">
+                <label>Fecha de Operación</label>
+                <input type="date" id="fecha">
+            </div>
+
+            <div class="seccion-interna" style="border: 1px solid #4299e1; background: #f0f8ff;">
+                <h4 style="margin-bottom:10px; color:#2b6cb0;">🛒 1. FACTURACIÓN ACTUAL (RECIBO DE MATERIAL)</h4>
+                
+                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 8px;">
+                    <div>
+                        <label>Cédula del Cliente</label>
+                        <div class="cedula-row">
+                            <input type="text" id="cedulaCliente" placeholder="Ej: 112340567">
+                            <button id="btnValidarCed" class="btn-orange" onclick="validarCedulaTSE()">🔎</button>
+                        </div>
+                    </div>
+                    <div>
+                        <label>Nombre Completo</label>
+                        <input type="text" id="nombreCliente" placeholder="Nombre completo">
+                    </div>
+                    <div>
+                        <label># Número de Factura</label>
+                        <input type="text" id="numFacturaCliente" placeholder="Ej: 00432" style="border: 1px solid #2b6cb0; font-weight: bold;">
+                    </div>
+                </div>
+
+                <hr style="border:0; border-top: 1px dashed #bee3f8; margin: 15px 0;">
+
+                <div class="grid-mat">
+                    <div style="grid-column: span 1;">
+                        <label>Material</label>
+                        <select id="matSelect" onchange="actualizarPrecioUnitario()">
+                            <option>Acero Inoxidable</option><option>Aluminio</option><option>Bateria Carro</option>
+                            <option>Bronce</option><option>Carton</option><option>Catalizador</option>
+                            <option>Chatarra</option><option>Cobre</option><option>Galones</option>
+                            <option>Pet</option><option>Tetrabrik</option><option>Tarjeta</option>
+                            <option>Lavadoras</option><option>Motores</option><option>Latas Aluminio</option>
+                            <option>Papel revuelto</option><option>Papel blanco</option><option>Papel color</option>
+                            <option>Periodico</option><option>Radiador Cobre Bronce</option><option>Radiador Cobre Aluminio</option>
+                            <option>Radiador Aluminio</option><option>Caja Plastica</option><option>Bolsa Transparente</option>
+                            <option>Bolsa Color</option><option>Vidrio</option><option>Otros</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label>Precio ₡ (Modificable)</label>
+                        <input type="number" id="matPrecioUnitario" oninput="calcularTotalMaterial()" style="border: 1px solid #1a73e8; font-weight:bold; background:#fff;">
+                    </div>
+                    <div>
+                        <label>Kilos</label>
+                        <input type="number" id="matKg" step="0.1" placeholder="0.0" oninput="calcularTotalMaterial()">
+                    </div>
+                    <div>
+                        <label>Total Material</label>
+                        <input type="number" id="matTotalMaterial" readonly style="background:#e2e8f0; font-weight:bold; color:#2b6cb0;">
+                    </div>
+                </div>
+                <button class="btn-blue" style="background:#2b6cb0;" onclick="agregarMaterialAFactura()">➕ Agregar Material a este Cliente</button>
+
+                <h5 style="margin: 15px 0 5px 0; color:#2b6cb0;">Pesajes del Cliente Actual:</h5>
+                <table style="background: white; border-radius: 4px; box-shadow: inset 0 1px 3px rgba(0,0,0,0.05);">
+                    <thead><tr><th>Material</th><th>Kilos</th><th>Precio Unit.</th><th>Subtotal</th><th></th></tr></thead>
+                    <tbody id="body-materiales-actuales"></tbody>
+                </table>
+                <div class="subtotal-banner">Monto Factura Cliente: ₡<span id="subtotalFacturaTxt">0</span></div>
+
+                <button class="btn-save-fact" onclick="guardarFacturaCompletaCliente()">💾 GUARDAR FACTURA COMPLETA</button>
+            </div>
+
+            <h4>📋 Facturas del Día (Listas para Envío)</h4>
+            <div style="max-height: 180px; overflow-y:auto; border:1px solid #ddd; border-radius:6px; margin-bottom:10px;">
+                <table>
+                    <thead><tr><th>Factura</th><th>Cliente</th><th>Materiales Detalle</th><th>Total Factura</th><th></th></tr></thead>
+                    <tbody id="body-facturas-agregadas">
+                        <tr><td colspan="5" style="text-align:center; color:#999;">No hay facturas guardadas todavía.</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="total-banner">Total Acumulado de Compras (Día): ₡<span id="totalFacturasTxt">0</span></div>
+
+            <div class="seccion-interna" style="background: #f8fafc; border: 1px solid #cbd5e1; margin-top: 15px;">
+                <h4 style="color:#1a73e8; font-size:14px; margin-bottom:8px;">📦 Totales Acumulados por Material (Bodega de Hoy)</h4>
+                <table style="background: white;">
+                    <thead>
+                        <tr>
+                            <th>Material</th>
+                            <th>Kilogramos Totales</th>
+                            <th>Monto Total Invertido</th>
+                        </tr>
+                    </thead>
+                    <tbody id="body-materiales-totales-dia">
+                        <tr><td colspan="3" style="text-align:center; color:#999;">Aún no hay materiales guardados en las facturas de hoy.</td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <hr style="margin:25px 0; border:0; border-top:1px solid #ccc;">
+
+            <div class="seccion-interna" style="background:#edf2f7;">
+                <h4 style="color:#2b6cb0; margin-bottom:10px;">💰 2. CONTROL FINANCIERO DE CAJA</h4>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap:10px;">
+                    <div>
+                        <label>Fondo Inicial (Caja Inicio)</label>
+                        <input type="number" id="cajaInicio" placeholder="₡0">
+                    </div>
+                    <div>
+                        <label>Total Ventas del Día (+)</label>
+                        <input type="number" id="ventas" placeholder="₡0">
+                    </div>
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap:10px; margin-top:5px;">
+                    <div>
+                        <label>Total Compras Materiales (Automático)</label>
+                        <input type="number" id="pagoMat" readonly style="background:#e2e8f0; font-weight:bold; color:#2e7d32;">
+                    </div>
+                    <div>
+                        <label>Gastos Varios (Diésel, Romana, etc.)</label>
+                        <input type="number" id="gastosFact" placeholder="₡0">
+                    </div>
+                </div>
+                <div style="margin-top:10px;">
+                    <label style="color:#c53030; font-size:12px;">💵 EFECTIVO EN MANO AL CIERRE (Arqueo Físico)</label>
+                    <input type="number" id="cierreMano" placeholder="₡0" style="border: 2px solid #c53030; font-size:16px; font-weight:bold;">
+                </div>
+            </div>
+
+            <button id="btnEnviarTodo" class="btn-green" onclick="enviarTodoFirebase()">🚀 ENVIAR CIERRE Y FACTURAS DEL DÍA</button>
+            
+            <div class="seccion-interna" style="background:#fffaf0; border: 1px solid #feebc8; margin-top: 35px;">
+                <div class="mini-deuda-box">
+                    🔴 DEUDA TOTAL: ₡<span id="deudaTotalTxt">0</span>
+                </div>
+                
+                <h4 style="color:#dd6b20; margin-bottom:10px;">📈 3. MOVIMIENTOS INDEPENDIENTES DE CUENTA</h4>
+                <p style="font-size:11px; color:#718096; margin-top:0;">Este módulo envía datos directos e individuales a la base de datos sin alterar tu reporte diario de caja anterior.</p>
+                
+                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap:10px;">
+                    <div>
+                        <label>Tipo de Registro</label>
+                        <select id="tipoMovimiento">
+                            <option value="Deposito">➕ Depósito / Abono recibido</option>
+                            <option value="Salida_Venta">➖ Salida / Venta de Materiales</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label>Monto del Movimiento (₡)</label>
+                        <input type="number" id="montoMovimiento" placeholder="Ej: 100000">
+                    </div>
+                    <div>
+                        <label>Fecha del Movimiento</label>
+                        <input type="date" id="fechaMovimiento">
+                    </div>
+                </div>
+                <button id="btnGuardarMov" class="btn-blue" style="background:#dd6b20; margin-top:12px;" onclick="guardarMovimientoCuenta()">💾 Registrar en Cuenta Externa</button>
+            </div>
+            
+        </div>
+
+        <div class="panel-lateral">
+            <h4 style="text-align:center; margin-bottom:10px; border-bottom:2px solid #f0f2f5; padding-bottom:8px;">📋 Lista de Precios Actual</h4>
+            <div class="scroll-precios">
+                <table style="margin-top:0;">
+                    <thead><tr><th>Material</th><th>Precio Kg</th></tr></thead>
+                    <tbody id="body-lista-precios"><tr><td colspan="2" style="text-align:center; color:#999;">Cargando...</td></tr></tbody>
+                </table>
+            </div>
+
+            <button class="btn-work" onclick="toggleSeccionPrecios()">✏️ Agregar / Cambiar Precios</button>
+
+            <div id="seccion-editar-precios" class="seccion-interna" style="display:none; margin-top:15px; background:#faf5ff; border:1px solid #d6bcfa;">
+                <h5 style="margin:0 0 10px 0; color:#6b46c1;">🔧 Configurar Precio</h5>
+                <label>Seleccione el Material</label>
+                <select id="editMatSelect" onchange="actualizarPrecioEnEdicion()"></select>
+                <label>Nuevo Precio Unitario (₡)</label>
+                <input type="number" id="editMatPrecio" placeholder="Ej: 750">
+                <button id="btnGuardarPrecio" class="btn-blue" style="background:#6b46c1; margin-top:10px;" onclick="guardarPrecioFirebase()">💾 Guardar Precio</button>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        document.getElementById('fecha').value = new Date().toISOString().split('T')[0];
+        document.getElementById('fechaMovimiento').value = new Date().toISOString().split('T')[0];
+    </script>
+</body>
+</html>
