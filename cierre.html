@@ -43,7 +43,7 @@
                     sucursalActual = "Desconocida";
                 }
 
-                document.getElementById('login-section').style.display = 'block';
+                document.getElementById('login-section').style.display = 'none';
                 document.getElementById('modulo-principal').style.display = 'grid';
                 document.getElementById('sucursal-txt').innerText = sucursalActual;
                 
@@ -163,7 +163,7 @@
             const btn = document.getElementById('btnValidarCed');
             const cedulaLimpia = cedulaInput.replace(/-/g, '');
 
-            if(cedulaLinterm-9) { alert("Ingrese 9 dígitos."); return; }
+            if(cedulaLinter || cedulaLimpia.length < 9) { alert("Ingrese 9 dígitos."); return; }
             btn.innerText = "⚡..."; btn.disabled = true;
 
             try {
@@ -267,9 +267,9 @@
 
                 tbody.innerHTML += `
                     <tr>
-                        <td><b>#${fact.num_factura}</b></td>
+                        <td><b>Fact: #${fact.num_factura}</b></td>
                         <td><b>${fact.nombre}</b><br><small style="color:#555">${fact.cedula}</small></td>
-                        <td style="max-width: 200px; font-size:11px; color:#444; white-space: normal;">${resumenMats}</td>
+                        <td style="max-width: 250px; font-size:11px; color:#444;">${resumenMats}</td>
                         <td><b>₡${fact.total_factura.toLocaleString()}</b></td>
                         <td><button onclick="eliminarFacturaGeneral(${index})" class="btn-del">x</button></td>
                     </tr>
@@ -395,67 +395,67 @@
 
     </script>
     <style>
-        body { font-family: 'Segoe UI', sans-serif; padding: 10px; background: #f0f2f5; margin: 0; box-sizing: border-box; }
-        .login-box { background: white; padding: 20px; max-width: 400px; margin: 40px auto; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); text-align: center; }
-        .login-box input { width: 100%; padding: 12px; margin: 10px 0; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif; padding: 12px; background: #f0f2f5; margin: 0; color: #333; }
         
-        /* Layout Base Autoadaptable */
-        .grid-layout { display: grid; grid-template-columns: 1fr 340px; gap: 15px; max-width: 1300px; margin: auto; }
-        .card { background: white; padding: 15px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); box-sizing: border-box; width: 100%; overflow: hidden; }
+        .login-box { background: white; padding: 25px; max-width: 400px; margin: 60px auto; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); text-align: center; box-sizing: border-box; }
+        .login-box input { width: 100%; padding: 12px; margin: 10px 0; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-size: 16px; }
         
-        h3, h4 { margin-top: 0; color: #1a73e8; font-size: 16px; }
-        label { font-size: 11px; font-weight: bold; color: #555; display: block; margin-top: 8px; }
-        input, select { width: 100%; padding: 10px; margin-top: 4px; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; font-size: 14px; }
+        .grid-layout { display: grid; grid-template-columns: 1fr 340px; gap: 16px; max-width: 1300px; margin: auto; }
+        .card { background: white; padding: 16px; border-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); box-sizing: border-box; }
         
-        .seccion-interna { background: #f8f9fa; padding: 12px; border-radius: 8px; border: 1px solid #e2e8f0; margin-bottom: 15px; box-sizing: border-box; }
+        h3, h4, h5 { margin-top: 0; color: #1a73e8; }
+        label { font-size: 12px; font-weight: 600; color: #4a5568; display: block; margin-top: 10px; }
         
-        /* Grids Inteligentes que se rompen en Celular */
-        .row-tres-columnas { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 8px; }
-        .cedula-row { display: grid; grid-template-columns: 1fr 50px; gap: 5px; }
-        .grid-mat { display: grid; grid-template-columns: 1.5fr 1fr 1fr 1fr; gap: 8px; align-items: end; }
-        .row-dos-columnas { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        input, select { width: 100%; padding: 10px; margin-top: 5px; border: 1px solid #cbd5e1; border-radius: 8px; box-sizing: border-box; font-size: 15px; background-color: #fff; height: 42px; -webkit-appearance: none; }
+        select { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%234a5568'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 10px center; background-size: 16px; padding-right: 30px; }
         
-        .btn-orange { background: #e67e22; color: white; border: none; margin-top: 4px; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 16px; }
-        .btn-blue { background: #1a73e8; color: white; border: none; padding: 12px; border-radius: 6px; font-weight: bold; width: 100%; margin-top: 10px; cursor: pointer; font-size: 14px; }
-        .btn-del { background: #ff5252; color: white; border: none; border-radius: 4px; padding: 4px 8px; cursor: pointer; font-weight: bold; }
+        .seccion-interna { background: #f8fafc; padding: 14px; border-radius: 12px; border: 1px solid #e2e8f0; margin-bottom: 16px; box-sizing: border-box; }
         
-        /* Contenedores de Tablas con Desplazamiento Horizontal en Celular */
-        .tabla-responsiva { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; border: 1px solid #eee; border-radius: 6px; margin-top: 10px; background: white; }
-        table { width: 100%; border-collapse: collapse; font-size: 12px; min-width: 450px; } /* Evita que la tabla colapse menos de 450px */
-        th { text-align: left; background: #eee; padding: 8px; }
-        td { padding: 8px; border-bottom: 1px solid #eee; }
+        .cedula-row { display: grid; grid-template-columns: 1fr 50px; gap: 6px; }
         
-        .subtotal-banner { text-align: right; font-weight: bold; padding: 8px; color: #1a73e8; font-size: 13px; background: #e8f0fe; border-radius: 4px; margin-top: 5px; }
-        .total-banner { text-align: right; font-weight: bold; padding: 12px; color: #2e7d32; font-size: 16px; background: #e8f5e9; border-radius: 6px; margin-top: 5px; }
-        .btn-green { width: 100%; padding: 15px; background: #2e7d32; color: white; border: none; border-radius: 8px; font-weight: bold; font-size: 15px; cursor: pointer; margin-top: 15px; }
-        .btn-save-fact { background: #2e7d32; color: white; border: none; padding: 14px; border-radius: 6px; font-weight: bold; width: 100%; margin-top: 12px; cursor: pointer; font-size: 14px; letter-spacing: 0.5px; }
+        /* Botones unificados y optimizados para touch */
+        button { min-height: 42px; font-size: 15px; font-weight: bold; border-radius: 8px; cursor: pointer; transition: background 0.2s; box-sizing: border-box; }
+        .btn-orange { background: #e67e22; color: white; border: none; margin-top: 5px; width: 100%; height: 42px; display: flex; align-items: center; justify-content: center; }
+        .btn-blue { background: #1a73e8; color: white; border: none; padding: 10px 16px; width: 100%; margin-top: 12px; }
+        .btn-del { background: #ff5252; color: white; border: none; border-radius: 6px; padding: 4px 10px; cursor: pointer; min-height: auto; font-size: 12px; }
+        .btn-green { width: 100%; padding: 14px; background: #2e7d32; color: white; border: none; border-radius: 10px; font-size: 16px; margin-top: 16px; }
+        .btn-save-fact { background: #2e7d32; color: white; border: none; padding: 12px; width: 100%; margin-top: 14px; font-size: 15px; }
+        .btn-work { background: #6b46c1; color: white; border: none; padding: 10px; width: 100%; }
         
-        .deuda-wrapper { margin-top: 10px; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center; background: #fff5f5; border: 1px solid #feb2b2; padding: 8px 12px; border-radius: 6px; font-size: 13px; color: #c53030; font-weight: bold; }
+        /* Tablas responsivas en móvil */
+        .table-responsive { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; border: 1px solid #e2e8f0; border-radius: 8px; background: white; margin-top: 10px; }
+        table { width: 100%; border-collapse: collapse; font-size: 13px; min-width: 450px; }
+        th { text-align: left; background: #f1f5f9; padding: 10px; font-weight: 600; color: #475569; }
+        td { padding: 10px; border-bottom: 1px solid #f1f5f9; vertical-align: middle; }
         
-        .panel-lateral { background: white; padding: 15px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); height: max-content; box-sizing: border-box; }
-        .scroll-precios { max-height: 250px; overflow-y: auto; border: 1px solid #eee; margin-bottom: 10px; }
-        .btn-work { background: #6b46c1; color: white; border: none; padding: 10px; border-radius: 6px; font-weight: bold; width: 100%; cursor: pointer; }
-
-        /* =======================================================
-           MEDIA QUERY: DISEÑO EXCLUSIVO PARA SMARTPHONES (MÓVILES)
-           ======================================================= */
-        @media (max-width: 850px) {
-            body { padding: 5px; }
-            .grid-layout { grid-template-columns: 1fr; gap: 15px; } /* Pasa a 1 sola columna vertical */
-            .card { padding: 10px; }
-            .seccion-interna { padding: 10px; }
+        .grid-mat { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+        .grid-mat > div:nth-child(1) { grid-column: span 2; }
+        .grid-mat > div:nth-child(4) { grid-column: span 2; }
+        
+        .subtotal-banner { text-align: right; font-weight: bold; padding: 10px; color: #1a73e8; font-size: 14px; background: #e8f0fe; border-radius: 8px; margin-top: 10px; }
+        .total-banner { text-align: right; font-weight: bold; padding: 12px; color: #2e7d32; font-size: 16px; background: #e8f5e9; border-radius: 8px; margin-top: 10px; }
+        
+        .mini-deuda-box { background: #fff5f5; border: 1px solid #feb2b2; padding: 6px 12px; border-radius: 8px; font-size: 13px; color: #c53030; font-weight: bold; text-align: center; margin-bottom: 15px; }
+        .panel-lateral { background: white; padding: 16px; border-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); height: max-content; box-sizing: border-box; }
+        .scroll-precios { max-height: 300px; overflow-y: auto; margin-bottom: 12px; border-radius: 8px; }
+        
+        /* Ajustes específicos para móviles */
+        @media(max-width: 850px) {
+            .grid-layout { grid-template-columns: 1fr; gap: 16px; }
+            body { padding: 8px; }
+            .card, .panel-lateral { padding: 12px; border-radius: 12px; }
+            .seccion-interna { padding: 10px; border-radius: 10px; }
             
-            /* Convertir filas de columnas en bloques de una sola columna */
-            .row-tres-columnas { grid-template-columns: 1fr; gap: 5px; }
-            .grid-mat { grid-template-columns: 1fr; gap: 5px; }
-            .row-dos-columnas { grid-template-columns: 1fr; gap: 5px; }
-            
-            input, select { padding: 11px; font-size: 15px; } /* Entradas más grandes para dedos */
-            .btn-blue, .btn-orange, .btn-save-fact, .btn-green { padding: 14px; font-size: 15px; }
-            
-            /* Ajuste de anchos fijos de tablas en móvil */
-            table { min-width: 500px; } 
-            th, td { padding: 10px 6px; font-size: 12px; }
+            /* Inputs de Info Cliente uno abajo del otro */
+            div[style*="display: grid; grid-template-columns: 1fr 1fr 1fr;"] {
+                grid-template-columns: 1fr !important;
+                gap: 5px !important;
+            }
+            /* Inputs independientes de cuenta uno abajo del otro */
+            div[style*="display: grid; grid-template-columns: 1fr 1fr 1fr; gap:10px;"] {
+                grid-template-columns: 1fr !important;
+                gap: 5px !important;
+            }
         }
     </style>
 </head>
@@ -471,7 +471,7 @@
     <div id="modulo-principal" class="grid-layout" style="display:none;">
         
         <div class="card">
-            <button onclick="logout()" style="float: right; background:#ff5252; color:white; border:none; border-radius:4px; padding:6px 12px; cursor:pointer; font-weight:bold; margin-left: 10px; font-size: 12px;">Salir</button>
+            <button onclick="logout()" style="float: right; background:#ff5252; color:white; border:none; border-radius:6px; padding:6px 12px; cursor:pointer; font-weight:bold; margin-left: 10px; min-height: auto;">Cerrar Sesión</button>
             <h3>📍 Sucursal: <span id="sucursal-txt" style="color:#2e7d32">...</span></h3>
             
             <div style="max-width: 100%; margin-bottom:15px;">
@@ -480,9 +480,9 @@
             </div>
 
             <div class="seccion-interna" style="border: 1px solid #4299e1; background: #f0f8ff;">
-                <h4 style="margin-bottom:10px; color:#2b6cb0;">🛒 1. FACTURACIÓN ACTUAL (RECIBO)</h4>
+                <h4 style="margin-bottom:10px; color:#2b6cb0;">🛒 1. FACTURACIÓN ACTUAL (RECIBO DE MATERIAL)</h4>
                 
-                <div class="row-tres-columnas">
+                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 8px;">
                     <div>
                         <label>Cédula del Cliente</label>
                         <div class="cedula-row">
@@ -533,8 +533,8 @@
                 <button class="btn-blue" style="background:#2b6cb0;" onclick="agregarMaterialAFactura()">➕ Agregar Material a este Cliente</button>
 
                 <h5 style="margin: 15px 0 5px 0; color:#2b6cb0;">Pesajes del Cliente Actual:</h5>
-                <div class="tabla-responsiva">
-                    <table>
+                <div class="table-responsive">
+                    <table style="background: white;">
                         <thead><tr><th>Material</th><th>Kilos</th><th>Precio Unit.</th><th>Subtotal</th><th></th></tr></thead>
                         <tbody id="body-materiales-actuales"></tbody>
                     </table>
@@ -545,20 +545,22 @@
             </div>
 
             <h4>📋 Facturas del Día (Listas para Envío)</h4>
-            <div class="tabla-responsiva" style="max-height: 200px; margin-top:0;">
-                <table>
-                    <thead><tr><th>Factura</th><th>Cliente</th><th>Materiales Detalle</th><th>Total Factura</th><th></th></tr></thead>
-                    <tbody id="body-facturas-agregadas">
-                        <tr><td colspan="5" style="text-align:center; color:#999;">No hay facturas guardadas todavía.</td></tr>
-                    </tbody>
-                </table>
+            <div style="max-height: 220px; overflow-y:auto; margin-bottom:10px;">
+                <div class="table-responsive">
+                    <table>
+                        <thead><tr><th>Factura</th><th>Cliente</th><th>Materiales Detalle</th><th>Total Factura</th><th></th></tr></thead>
+                        <tbody id="body-facturas-agregadas">
+                            <tr><td colspan="5" style="text-align:center; color:#999;">No hay facturas guardadas todavía.</td></tr>
+                        </tbody>
+                    </table>
+                </div>
             </div>
-            <div class="total-banner">Total Acumulado de Compras: ₡<span id="totalFacturasTxt">0</span></div>
+            <div class="total-banner">Total Acumulado de Compras (Día): ₡<span id="totalFacturasTxt">0</span></div>
 
             <div class="seccion-interna" style="background: #f8fafc; border: 1px solid #cbd5e1; margin-top: 15px;">
                 <h4 style="color:#1a73e8; font-size:14px; margin-bottom:8px;">📦 Totales Acumulados por Material (Bodega de Hoy)</h4>
-                <div class="tabla-responsiva" style="margin-top:0;">
-                    <table>
+                <div class="table-responsive">
+                    <table style="background: white;">
                         <thead>
                             <tr>
                                 <th>Material</th>
@@ -573,11 +575,11 @@
                 </div>
             </div>
 
-            <hr style="margin:25px 0; border:0; border-top:1px solid #ccc;">
+            <hr style="margin:25px 0; border:0; border-top:1px solid #cbd5e1;">
 
             <div class="seccion-interna" style="background:#edf2f7;">
                 <h4 style="color:#2b6cb0; margin-bottom:10px;">💰 2. CONTROL FINANCIERO DE CAJA</h4>
-                <div class="row-dos-columnas">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap:10px;">
                     <div>
                         <label>Fondo Inicial (Caja Inicio)</label>
                         <input type="number" id="cajaInicio" placeholder="₡0">
@@ -587,7 +589,7 @@
                         <input type="number" id="ventas" placeholder="₡0">
                     </div>
                 </div>
-                <div class="row-dos-columnas" style="margin-top:5px;">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap:10px; margin-top:5px;">
                     <div>
                         <label>Total Compras Materiales (Automático)</label>
                         <input type="number" id="pagoMat" readonly style="background:#e2e8f0; font-weight:bold; color:#2e7d32;">
@@ -606,15 +608,14 @@
             <button id="btnEnviarTodo" class="btn-green" onclick="enviarTodoFirebase()">🚀 ENVIAR CIERRE Y FACTURAS DEL DÍA</button>
             
             <div class="seccion-interna" style="background:#fffaf0; border: 1px solid #feebc8; margin-top: 35px;">
-                <div class="deuda-wrapper">
-                    <span>ESTADO GLOBAL:</span>
-                    <span>🔴 DEUDA TOTAL: ₡<span id="deudaTotalTxt">0</span></span>
+                <div class="mini-deuda-box">
+                    🔴 DEUDA TOTAL: ₡<span id="deudaTotalTxt">0</span>
                 </div>
                 
-                <h4 style="color:#dd6b20; margin-bottom:5px;">📈 3. MOVIMIENTOS INDEPENDIENTES DE CUENTA</h4>
-                <p style="font-size:11px; color:#718096; margin-top:0; margin-bottom:10px;">Este módulo envía datos directos sin alterar tu reporte de caja de arriba.</p>
+                <h4 style="color:#dd6b20; margin-bottom:10px;">📈 3. MOVIMIENTOS INDEPENDIENTES DE CUENTA</h4>
+                <p style="font-size:11px; color:#718096; margin-top:0;">Este módulo envía datos directos e individuales a la base de datos sin alterar tu reporte diario de caja anterior.</p>
                 
-                <div class="row-tres-columnas">
+                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap:10px;">
                     <div>
                         <label>Tipo de Registro</label>
                         <select id="tipoMovimiento">
@@ -639,8 +640,8 @@
         <div class="panel-lateral">
             <h4 style="text-align:center; margin-bottom:10px; border-bottom:2px solid #f0f2f5; padding-bottom:8px;">📋 Lista de Precios Actual</h4>
             <div class="scroll-precios">
-                <div class="tabla-responsiva" style="margin-top:0; border:none;">
-                    <table style="min-width: 100%;">
+                <div class="table-responsive" style="margin-top:0;">
+                    <table style="margin-top:0; min-width: 100%;">
                         <thead><tr><th>Material</th><th>Precio Kg</th></tr></thead>
                         <tbody id="body-lista-precios"><tr><td colspan="2" style="text-align:center; color:#999;">Cargando...</td></tr></tbody>
                     </table>
