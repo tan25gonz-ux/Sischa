@@ -163,7 +163,7 @@
             const btn = document.getElementById('btnValidarCed');
             const cedulaLimpia = cedulaInput.replace(/-/g, '');
 
-            if(cedulaLinter || cedulaLimpia.length < 9) { alert("Ingrese 9 dígitos."); return; }
+            if(!cedulaLimpia || cedulaLimpia.length < 9) { alert("Ingrese 9 dígitos."); return; }
             btn.innerText = "⚡..."; btn.disabled = true;
 
             try {
@@ -254,6 +254,16 @@
             document.getElementById('cedulaCliente').focus();
         };
 
+        window.calcularEfectivoCierreAutomatico = () => {
+            const cajaInicio = parseFloat(document.getElementById('cajaInicio').value) || 0;
+            const ventas = parseFloat(document.getElementById('ventas').value) || 0;
+            const pagoMat = totalAcumuladoComprasDia;
+            const gastosFact = parseFloat(document.getElementById('gastosFact').value) || 0;
+
+            const calculado = (cajaInicio + ventas) - (pagoMat + gastosFact);
+            document.getElementById('cierreMano').value = calculado.toFixed(0);
+        };
+
         function actualizarTablaGeneralDia() {
             const tbody = document.getElementById('body-facturas-agregadas');
             tbody.innerHTML = "";
@@ -287,6 +297,7 @@
             document.getElementById('totalFacturasTxt').innerText = totalAcumuladoComprasDia.toLocaleString();
             document.getElementById('pagoMat').value = totalAcumuladoComprasDia;
 
+            calcularEfectivoCierreAutomatico();
             renderizarTablaAcumuladosDia(acumuladoMateriales);
         }
 
@@ -406,14 +417,13 @@
         h3, h4, h5 { margin-top: 0; color: #1a73e8; }
         label { font-size: 12px; font-weight: 600; color: #4a5568; display: block; margin-top: 10px; }
         
-        input, select { width: 100%; padding: 10px; margin-top: 5px; border: 1px solid #cbd5e1; border-radius: 8px; box-sizing: border-box; font-size: 15px; background-color: #fff; height: 42px; -webkit-appearance: none; }
+        input, select { width: 100%; padding: 10px; margin-top: 5px; border: 1px solid #cbd5e1; border-radius: 8px; box-sizing: border-box; font-size: 15px; background-color: #fff; height: 42px; -webkit-appearance: none; appearance: none; }
         select { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%234a5568'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 10px center; background-size: 16px; padding-right: 30px; }
         
         .seccion-interna { background: #f8fafc; padding: 14px; border-radius: 12px; border: 1px solid #e2e8f0; margin-bottom: 16px; box-sizing: border-box; }
         
         .cedula-row { display: grid; grid-template-columns: 1fr 50px; gap: 6px; }
         
-        /* Botones unificados y optimizados para touch */
         button { min-height: 42px; font-size: 15px; font-weight: bold; border-radius: 8px; cursor: pointer; transition: background 0.2s; box-sizing: border-box; }
         .btn-orange { background: #e67e22; color: white; border: none; margin-top: 5px; width: 100%; height: 42px; display: flex; align-items: center; justify-content: center; }
         .btn-blue { background: #1a73e8; color: white; border: none; padding: 10px 16px; width: 100%; margin-top: 12px; }
@@ -422,7 +432,6 @@
         .btn-save-fact { background: #2e7d32; color: white; border: none; padding: 12px; width: 100%; margin-top: 14px; font-size: 15px; }
         .btn-work { background: #6b46c1; color: white; border: none; padding: 10px; width: 100%; }
         
-        /* Tablas responsivas en móvil */
         .table-responsive { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; border: 1px solid #e2e8f0; border-radius: 8px; background: white; margin-top: 10px; }
         table { width: 100%; border-collapse: collapse; font-size: 13px; min-width: 450px; }
         th { text-align: left; background: #f1f5f9; padding: 10px; font-weight: 600; color: #475569; }
@@ -439,19 +448,16 @@
         .panel-lateral { background: white; padding: 16px; border-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); height: max-content; box-sizing: border-box; }
         .scroll-precios { max-height: 300px; overflow-y: auto; margin-bottom: 12px; border-radius: 8px; }
         
-        /* Ajustes específicos para móviles */
         @media(max-width: 850px) {
             .grid-layout { grid-template-columns: 1fr; gap: 16px; }
             body { padding: 8px; }
             .card, .panel-lateral { padding: 12px; border-radius: 12px; }
             .seccion-interna { padding: 10px; border-radius: 10px; }
             
-            /* Inputs de Info Cliente uno abajo del otro */
             div[style*="display: grid; grid-template-columns: 1fr 1fr 1fr;"] {
                 grid-template-columns: 1fr !important;
                 gap: 5px !important;
             }
-            /* Inputs independientes de cuenta uno abajo del otro */
             div[style*="display: grid; grid-template-columns: 1fr 1fr 1fr; gap:10px;"] {
                 grid-template-columns: 1fr !important;
                 gap: 5px !important;
@@ -582,11 +588,11 @@
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap:10px;">
                     <div>
                         <label>Fondo Inicial (Caja Inicio)</label>
-                        <input type="number" id="cajaInicio" placeholder="₡0">
+                        <input type="number" id="cajaInicio" placeholder="₡0" oninput="calcularEfectivoCierreAutomatico()">
                     </div>
                     <div>
                         <label>Total Ventas del Día (+)</label>
-                        <input type="number" id="ventas" placeholder="₡0">
+                        <input type="number" id="ventas" placeholder="₡0" oninput="calcularEfectivoCierreAutomatico()">
                     </div>
                 </div>
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap:10px; margin-top:5px;">
@@ -596,12 +602,12 @@
                     </div>
                     <div>
                         <label>Gastos Varios (Diésel, Romana, etc.)</label>
-                        <input type="number" id="gastosFact" placeholder="₡0">
+                        <input type="number" id="gastosFact" placeholder="₡0" oninput="calcularEfectivoCierreAutomatico()">
                     </div>
                 </div>
                 <div style="margin-top:10px;">
-                    <label style="color:#c53030; font-size:12px;">💵 EFECTIVO EN MANO AL CIERRE (Arqueo Físico)</label>
-                    <input type="number" id="cierreMano" placeholder="₡0" style="border: 2px solid #c53030; font-size:16px; font-weight:bold;">
+                    <label style="color:#2e7d32; font-size:12px; font-weight: bold;">💵 EFECTIVO EN MANO AL CIERRE (Calculado automáticamente)</label>
+                    <input type="number" id="cierreMano" readonly style="background:#e2e8f0; font-size:16px; font-weight:bold; color:#2e7d32; border: 1px solid #cbd5e1;">
                 </div>
             </div>
 
