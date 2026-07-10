@@ -9,6 +9,7 @@
         import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
         import { getFirestore, doc, getDoc, setDoc, collection, addDoc, writeBatch, serverTimestamp, query, where, getDocs } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
+        // Tus datos originales de Firebase restaurados por completo
         const firebaseConfig = {
             apiKey: "AIzaSyCi409CkmXBbun7-POejbVaIiThK2nZ1JY",
             authDomain: "prestamos-18dd8.firebaseapp.com",
@@ -35,7 +36,7 @@
 
                 if (emailUsuario === "grupoperez@gmail.com") {
                     sucursalActual = "Perez";
-                } else if (emailUsuario === "grupoparaiso@gmail.com") {
+                } else if (emailUsuario === "grupopparaiso@gmail.com") {
                     sucursalActual = "Paraiso";
                 } else if (emailUsuario === "grupocartago@gmail.com") {
                     sucursalActual = "Cartago";
@@ -47,20 +48,18 @@
                 document.getElementById('modulo-principal').style.display = 'grid';
                 document.getElementById('sucursal-txt').innerText = sucursalActual;
                 
-                // 1. Intentar cargar facturas guardadas previamente en el navegador
                 const facturasGuardadas = localStorage.getItem(`facturas_${sucursalActual}`);
                 if (facturasGuardadas) {
                     facturasDelDia = JSON.parse(facturasGuardadas);
                 }
 
-                // 2. Intentar cargar los inputs financieros guardados
                 document.getElementById('cajaInicio').value = localStorage.getItem(`cajaInicio_${sucursalActual}`) || "";
                 document.getElementById('ventas').value = localStorage.getItem(`ventas_${sucursalActual}`) || "";
                 document.getElementById('gastosFact').value = localStorage.getItem(`gastosFact_${sucursalActual}`) || "";
 
                 await cargarPreciosDesdeFirebase();
                 await calcularDeudaTotal();
-                actualizarTablaGeneralDia(); // Renderiza todo lo recuperado
+                actualizarTablaGeneralDia(); 
             } else {
                 document.getElementById('login-section').style.display = 'block';
                 document.getElementById('modulo-principal').style.display = 'none';
@@ -170,23 +169,36 @@
             document.getElementById('matTotalMaterial').value = (precio * kg).toFixed(0);
         };
 
+        // CORREGIDO: Ahora busca el cliente en tu propia base de datos de Firebase
         window.validarCedulaTSE = async function() {
             const cedulaInput = document.getElementById('cedulaCliente').value.trim();
             const btn = document.getElementById('btnValidarCed');
             const cedulaLimpia = cedulaInput.replace(/-/g, '');
 
-            if(!cedulaLimpia || cedulaLimpia.length < 9) { alert("Ingrese 9 dígitos."); return; }
+            if(!cedulaLimpia) { alert("Ingrese una cédula."); return; }
             btn.innerText = "⚡..."; btn.disabled = true;
 
             try {
-                const respuesta = await fetch(`https://apis.gometa.org/cedulas/${cedulaLimpia}`);
-                if (respuesta.ok) {
-                    const data = await respuesta.json();
-                    if (data && data.nombre) { document.getElementById('nombreCliente').value = data.nombre; }
-                    else { alert("⚠️ No encontrada."); }
+                const docRef = doc(db, "clientes", cedulaLimpia);
+                const docSnap = await getDoc(docRef);
+
+                if (docSnap.exists()) {
+                    document.getElementById('nombreCliente').value = docSnap.data().nombre;
+                    // Deshabilitar entrada si ya existe en base de datos para evitar errores accidentales
+                    document.getElementById('nombreCliente').readOnly = true; 
+                } else {
+                    alert("ℹ️ Cliente nuevo. Por favor, digite el nombre completo manualmente.");
+                    document.getElementById('nombreCliente').value = "";
+                    document.getElementById('nombreCliente').readOnly = false;
+                    document.getElementById('nombreCliente').focus();
                 }
-            } catch (error) { alert("Error al conectar con el padrón."); }
-            finally { btn.innerText = "🔎"; btn.disabled = false; }
+            } catch (error) { 
+                alert("Error al buscar en la base de datos."); 
+                console.error(error);
+            } finally { 
+                btn.innerText = "🔎"; 
+                btn.disabled = false; 
+            }
         };
 
         window.agregarMaterialAFactura = () => {
@@ -232,12 +244,14 @@
             actualizarTablaFacturaActual();
         };
 
-        window.guardarFacturaCompletaCliente = () => {
+        // CORREGIDO: Guarda facturas y registra el cliente en Firebase si es nuevo
+        window.guardarFacturaCompletaCliente = async function() {
             const cedula = document.getElementById('cedulaCliente').value.trim();
             const nombre = document.getElementById('nombreCliente').value.trim();
             const numFactura = document.getElementById('numFacturaCliente').value.trim();
+            const cedulaLimpia = cedula.replace(/-/g, '');
 
-            if (!cedula || !nombre || !numFactura) {
+            if (!cedulaLimpia || !nombre || !numFactura) {
                 alert("⚠️ Debe ingresar la Cédula, el Nombre y el Número de Factura.");
                 return;
             }
@@ -246,17 +260,26 @@
                 return;
             }
 
+            // Guardar o actualizar de manera asíncrona al cliente en la colección propia de Firebase
+            try {
+                await setDoc(doc(db, "clientes", cedulaLimpia), {
+                    nombre: nombre,
+                    ultima_actualizacion: serverTimestamp()
+                }, { merge: true });
+            } catch (err) {
+                console.error("Error guardando cliente en base de datos local: ", err);
+            }
+
             let totalFactura = materialesFacturaActual.reduce((sum, item) => sum + item.total_pago, 0);
 
             facturasDelDia.push({
                 num_factura: numFactura,
-                cedula,
+                cedula: cedulaLimpia,
                 nombre,
                 detalles_materiales: [...materialesFacturaActual],
                 total_factura: totalFactura
             });
 
-            // Guardar el arreglo actualizado en localStorage
             localStorage.setItem(`facturas_${sucursalActual}`, JSON.stringify(facturasDelDia));
 
             actualizarTablaGeneralDia();
@@ -265,6 +288,7 @@
             actualizarTablaFacturaActual();
             document.getElementById('cedulaCliente').value = "";
             document.getElementById('nombreCliente').value = "";
+            document.getElementById('nombreCliente').readOnly = false; // Restaurar estado editable
             document.getElementById('numFacturaCliente').value = "";
             document.getElementById('cedulaCliente').focus();
         };
@@ -278,7 +302,6 @@
             const calculado = (cajaInicio + ventas) - (pagoMat + gastosFact);
             document.getElementById('cierreMano').value = calculado.toFixed(0);
 
-            // Guardar valores financieros para que tampoco se borren al cerrar navegador
             localStorage.setItem(`cajaInicio_${sucursalActual}`, document.getElementById('cajaInicio').value);
             localStorage.setItem(`ventas_${sucursalActual}`, document.getElementById('ventas').value);
             localStorage.setItem(`gastosFact_${sucursalActual}`, document.getElementById('gastosFact').value);
@@ -295,7 +318,8 @@
                 tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:#999;">No hay facturas guardadas todavía.</td></tr>`;
             } else {
                 facturasDelDia.forEach((fact, index) => {
-                    totalAcumuladoComprasDia += fact.total_factura;
+                    const montoFactura = parseFloat(fact.total_factura) || 0;
+                    totalAcumuladoComprasDia += montoFactura;
                     let resumenMats = fact.detalles_materiales.map(m => `${m.material} (${m.kilos}kg)`).join(', ');
 
                     tbody.innerHTML += `
@@ -303,7 +327,7 @@
                             <td><b>Fact: #${fact.num_factura}</b></td>
                             <td><b>${fact.nombre}</b><br><small style="color:#555">${fact.cedula}</small></td>
                             <td style="max-width: 250px; font-size:11px; color:#444;">${resumenMats}</td>
-                            <td><b>₡${fact.total_factura.toLocaleString()}</b></td>
+                            <td><b>₡${montoFactura.toLocaleString()}</b></td>
                             <td><button onclick="eliminarFacturaGeneral(${index})" class="btn-del">x</button></td>
                         </tr>
                     `;
@@ -313,7 +337,7 @@
                             acumuladoMateriales[m.material] = { kilos: 0, costo: 0 };
                         }
                         acumuladoMateriales[m.material].kilos += m.kilos;
-                        acumuladoMateriales[m.material].costo += m.total_pago;
+                        acumuladoMateriales[m.material].costo += (parseFloat(m.total_pago) || 0);
                     });
                 });
             }
@@ -327,7 +351,6 @@
 
         window.eliminarFacturaGeneral = (index) => {
             facturasDelDia.splice(index, 1);
-            // Actualizar la memoria del navegador tras la eliminación
             localStorage.setItem(`facturas_${sucursalActual}`, JSON.stringify(facturasDelDia));
             actualizarTablaGeneralDia();
         };
@@ -370,7 +393,6 @@
 
                 await batch.commit();
                 
-                // Limpiar TODA la memoria del localStorage asociada a esta sucursal tras el éxito
                 localStorage.removeItem(`facturas_${sucursalActual}`);
                 localStorage.removeItem(`cajaInicio_${sucursalActual}`);
                 localStorage.removeItem(`ventas_${sucursalActual}`);
