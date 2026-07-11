@@ -27,18 +27,19 @@
         let materialesFacturaActual = []; 
         let uidTrabajador = null;
         let totalAcumuladoComprasDia = 0;
-        let sucursalActual = "Perez";
+        let sucursalActual = "Desconocida";
 
         onAuthStateChanged(auth, async (user) => {
             if (user) {
                 uidTrabajador = user.uid;
                 const emailUsuario = user.email ? user.email.toLowerCase().trim() : "";
 
-                if (emailUsuario === "grupoperez@gmail.com") {
+                // CORREGIDO: Validación flexible para evitar que quede como "DESCONOCIDA"
+                if (emailUsuario.includes("perez")) {
                     sucursalActual = "Perez";
-                } else if (emailUsuario === "grupoparaiso@gmail.com") {
+                } else if (emailUsuario.includes("paraiso")) { 
                     sucursalActual = "Paraiso";
-                } else if (emailUsuario === "grupocartago@gmail.com") {
+                } else if (emailUsuario.includes("cartago")) {
                     sucursalActual = "Cartago";
                 } else {
                     sucursalActual = "Desconocida";
@@ -169,7 +170,7 @@
             document.getElementById('matTotalMaterial').value = (precio * kg).toFixed(0);
         };
 
-        // CORREGIDO: Ahora busca el cliente en tu propia base de datos de Firebase
+        // CORREGIDO: Busca el cliente en tu Firebase y se removió el error 'cedulaLinter'
         window.validarCedulaTSE = async function() {
             const cedulaInput = document.getElementById('cedulaCliente').value.trim();
             const btn = document.getElementById('btnValidarCed');
@@ -184,7 +185,6 @@
 
                 if (docSnap.exists()) {
                     document.getElementById('nombreCliente').value = docSnap.data().nombre;
-                    // Deshabilitar entrada si ya existe en base de datos para evitar errores accidentales
                     document.getElementById('nombreCliente').readOnly = true; 
                 } else {
                     alert("ℹ️ Cliente nuevo. Por favor, digite el nombre completo manualmente.");
@@ -244,7 +244,6 @@
             actualizarTablaFacturaActual();
         };
 
-        // CORREGIDO: Guarda facturas y registra el cliente en Firebase si es nuevo
         window.guardarFacturaCompletaCliente = async function() {
             const cedula = document.getElementById('cedulaCliente').value.trim();
             const nombre = document.getElementById('nombreCliente').value.trim();
@@ -260,7 +259,6 @@
                 return;
             }
 
-            // Guardar o actualizar de manera asíncrona al cliente en la colección propia de Firebase
             try {
                 await setDoc(doc(db, "clientes", cedulaLimpia), {
                     nombre: nombre,
@@ -288,19 +286,35 @@
             actualizarTablaFacturaActual();
             document.getElementById('cedulaCliente').value = "";
             document.getElementById('nombreCliente').value = "";
-            document.getElementById('nombreCliente').readOnly = false; // Restaurar estado editable
+            document.getElementById('nombreCliente').readOnly = false; 
             document.getElementById('numFacturaCliente').value = "";
             document.getElementById('cedulaCliente').focus();
         };
 
+        // NUEVAS FUNCIÓNES: Formateador con espacios dinámicos en los inputs numéricos
+        window.formatearInputMoneda = (input) => {
+            let valor = input.value.replace(/\D/g, "");
+            if (valor) {
+                input.value = Number(valor).toLocaleString('es').replace(/,/g, ' ');
+            } else {
+                input.value = "";
+            }
+            calcularEfectivoCierreAutomatico();
+        };
+
+        function obtenerNumeroLimpio(idElemento) {
+            const val = document.getElementById(idElemento).value;
+            return parseFloat(val.replace(/\s/g, "")) || 0;
+        }
+
         window.calcularEfectivoCierreAutomatico = () => {
-            const cajaInicio = parseFloat(document.getElementById('cajaInicio').value) || 0;
-            const ventas = parseFloat(document.getElementById('ventas').value) || 0;
+            const cajaInicio = obtenerNumeroLimpio('cajaInicio');
+            const ventas = obtenerNumeroLimpio('ventas');
             const pagoMat = totalAcumuladoComprasDia;
-            const gastosFact = parseFloat(document.getElementById('gastosFact').value) || 0;
+            const gastosFact = obtenerNumeroLimpio('gastosFact');
 
             const calculado = (cajaInicio + ventas) - (pagoMat + gastosFact);
-            document.getElementById('cierreMano').value = calculado.toFixed(0);
+            document.getElementById('cierreMano').value = calculado.toLocaleString('es').replace(/,/g, ' ');
 
             localStorage.setItem(`cajaInicio_${sucursalActual}`, document.getElementById('cajaInicio').value);
             localStorage.setItem(`ventas_${sucursalActual}`, document.getElementById('ventas').value);
@@ -343,7 +357,7 @@
             }
 
             document.getElementById('totalFacturasTxt').innerText = totalAcumuladoComprasDia.toLocaleString();
-            document.getElementById('pagoMat').value = totalAcumuladoComprasDia;
+            document.getElementById('pagoMat').value = totalAcumuladoComprasDia.toLocaleString('es').replace(/,/g, ' ');
 
             calcularEfectivoCierreAutomatico();
             renderizarTablaAcumuladosDia(acumuladoMateriales);
@@ -373,11 +387,11 @@
                 const cierreRef = doc(collection(db, "revisiones_faltantes")); 
                 batch.set(cierreRef, {
                     uid_trabajador: uidTrabajador, sucursal: sucursalActual, fecha,
-                    caja_inicio: parseFloat(document.getElementById('cajaInicio').value) || 0,
-                    total_ventas: parseFloat(document.getElementById('ventas').value) || 0,
+                    caja_inicio: obtenerNumeroLimpio('cajaInicio'),
+                    total_ventas: obtenerNumeroLimpio('ventas'),
                     pago_materiales: totalAcumuladoComprasDia,
-                    gastos_facturas: parseFloat(document.getElementById('gastosFact').value) || 0,
-                    cierre_mano: parseFloat(document.getElementById('cierreMano').value) || 0,
+                    gastos_facturas: obtenerNumeroLimpio('gastosFact'),
+                    cierre_mano: obtenerNumeroLimpio('cierreMano'),
                     estado: "Pendiente", timestamp: serverTimestamp()
                 });
 
@@ -408,7 +422,7 @@
 
         window.guardarMovimientoCuenta = async function() {
             const tipo = document.getElementById('tipoMovimiento').value;
-            const monto = parseFloat(document.getElementById('montoMovimiento').value);
+            const monto = obtenerNumeroLimpio('montoMovimiento');
             const fechaMov = document.getElementById('fechaMovimiento').value;
 
             if(!monto || monto <= 0 || !fechaMov) {
@@ -643,26 +657,26 @@
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap:10px;">
                     <div>
                         <label>Fondo Inicial (Caja Inicio)</label>
-                        <input type="number" id="cajaInicio" placeholder="₡0" oninput="calcularEfectivoCierreAutomatico()">
+                        <input type="text" id="cajaInicio" placeholder="₡0" oninput="formatearInputMoneda(this)">
                     </div>
                     <div>
                         <label>Total Ventas del Día (+)</label>
-                        <input type="number" id="ventas" placeholder="₡0" oninput="calcularEfectivoCierreAutomatico()">
+                        <input type="text" id="ventas" placeholder="₡0" oninput="formatearInputMoneda(this)">
                     </div>
                 </div>
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap:10px; margin-top:5px;">
                     <div>
                         <label>Total Compras Materiales (Automático)</label>
-                        <input type="number" id="pagoMat" readonly style="background:#e2e8f0; font-weight:bold; color:#2e7d32;">
+                        <input type="text" id="pagoMat" readonly style="background:#e2e8f0; font-weight:bold; color:#2e7d32;">
                     </div>
                     <div>
                         <label>Gastos Varios (Diésel, Romana, etc.)</label>
-                        <input type="number" id="gastosFact" placeholder="₡0" oninput="calcularEfectivoCierreAutomatico()">
+                        <input type="text" id="gastosFact" placeholder="₡0" oninput="formatearInputMoneda(this)">
                     </div>
                 </div>
                 <div style="margin-top:10px;">
                     <label style="color:#2e7d32; font-size:12px; font-weight: bold;">💵 EFECTIVO EN MANO AL CIERRE (Calculado automáticamente)</label>
-                    <input type="number" id="cierreMano" readonly style="background:#e2e8f0; font-size:16px; font-weight:bold; color:#2e7d32; border: 1px solid #cbd5e1;">
+                    <input type="text" id="cierreMano" readonly style="background:#e2e8f0; font-size:16px; font-weight:bold; color:#2e7d32; border: 1px solid #cbd5e1;">
                 </div>
             </div>
 
@@ -686,7 +700,7 @@
                     </div>
                     <div>
                         <label>Monto del Movimiento (₡)</label>
-                        <input type="number" id="montoMovimiento" placeholder="Ej: 100000">
+                        <input type="text" id="montoMovimiento" placeholder="Ej: 100 000" oninput="formatearInputMoneda(this)">
                     </div>
                     <div>
                         <label>Fecha del Movimiento</label>
