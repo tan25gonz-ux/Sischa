@@ -9,7 +9,7 @@
         import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
         import { getFirestore, doc, getDoc, setDoc, collection, addDoc, writeBatch, serverTimestamp, query, where, getDocs } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-        // Tus datos originales de Firebase restaurados por completo
+    
         const firebaseConfig = {
             apiKey: "AIzaSyCi409CkmXBbun7-POejbVaIiThK2nZ1JY",
             authDomain: "prestamos-18dd8.firebaseapp.com",
@@ -34,7 +34,7 @@
                 uidTrabajador = user.uid;
                 const emailUsuario = user.email ? user.email.toLowerCase().trim() : "";
 
-                // CORREGIDO: Validación flexible para evitar que quede como "DESCONOCIDA"
+                // Validación robusta de sucursales por correo
                 if (emailUsuario.includes("perez")) {
                     sucursalActual = "Perez";
                 } else if (emailUsuario.includes("paraiso")) { 
@@ -93,7 +93,7 @@
                     }
                 });
                 
-                document.getElementById('deudaTotalTxt').innerText = deudaCalculada.toLocaleString();
+                document.getElementById('deudaTotalTxt').innerText = deudaCalculada.toLocaleString('es-CR');
             } catch (error) {
                 console.error("Error calculando la deuda: ", error);
             }
@@ -114,7 +114,7 @@
             for (const [material, precio] of Object.entries(preciosTrabajador)) {
                 if (precio > 0) {
                     tienePrecios = true;
-                    tbody.innerHTML += `<tr><td>${material}</td><td><b>₡${precio}</b></td></tr>`;
+                    tbody.innerHTML += `<tr><td>${material}</td><td><b>₡${precio.toLocaleString('es-CR')}</b></td></tr>`;
                 }
             }
             if(!tienePrecios) {
@@ -170,7 +170,7 @@
             document.getElementById('matTotalMaterial').value = (precio * kg).toFixed(0);
         };
 
-        // CORREGIDO: Busca el cliente en tu Firebase y se removió el error 'cedulaLinter'
+        // CORREGIDO: Solucionado el ReferenceError de cedulaLinter
         window.validarCedulaTSE = async function() {
             const cedulaInput = document.getElementById('cedulaCliente').value.trim();
             const btn = document.getElementById('btnValidarCed');
@@ -230,13 +230,13 @@
                     <tr>
                         <td>${item.material}</td>
                         <td>${item.kilos} kg</td>
-                        <td>₡${item.precio_unitario}</td>
-                        <td><b>₡${item.total_pago.toLocaleString()}</b></td>
+                        <td>₡${item.precio_unitario.toLocaleString('es-CR')}</td>
+                        <td><b>₡${item.total_pago.toLocaleString('es-CR')}</b></td>
                         <td><button onclick="eliminarMaterialActual(${index})" class="btn-del">x</button></td>
                     </tr>
                 `;
             });
-            document.getElementById('subtotalFacturaTxt').innerText = subtotal.toLocaleString();
+            document.getElementById('subtotalFacturaTxt').innerText = subtotal.toLocaleString('es-CR');
         }
 
         window.eliminarMaterialActual = (index) => {
@@ -265,7 +265,7 @@
                     ultima_actualizacion: serverTimestamp()
                 }, { merge: true });
             } catch (err) {
-                console.error("Error guardando cliente en base de datos local: ", err);
+                console.error("Error guardando cliente: ", err);
             }
 
             let totalFactura = materialesFacturaActual.reduce((sum, item) => sum + item.total_pago, 0);
@@ -291,30 +291,35 @@
             document.getElementById('cedulaCliente').focus();
         };
 
-        // NUEVAS FUNCIÓNES: Formateador con espacios dinámicos en los inputs numéricos
+        // Formateador con puntos como separadores de miles
         window.formatearInputMoneda = (input) => {
             let valor = input.value.replace(/\D/g, "");
             if (valor) {
-                input.value = Number(valor).toLocaleString('es').replace(/,/g, ' ');
+                input.value = Number(valor).toLocaleString('es-CR');
             } else {
                 input.value = "";
             }
             calcularEfectivoCierreAutomatico();
         };
 
+        // CORREGIDO: Remueve todos los puntos, comas y espacios antes de calcular para evitar el bug del parseFloat
         function obtenerNumeroLimpio(idElemento) {
-            const val = document.getElementById(idElemento).value;
-            return parseFloat(val.replace(/\s/g, "")) || 0;
+            const inputElement = document.getElementById(idElemento);
+            if (!inputElement || !inputElement.value) return 0;
+            const textoLimpio = inputElement.value.replace(/[\s.,₡]/g, "");
+            return parseFloat(textoLimpio) || 0;
         }
 
+        // CORREGIDO: Fórmula de balance limpia y formateada en es-CR
         window.calcularEfectivoCierreAutomatico = () => {
             const cajaInicio = obtenerNumeroLimpio('cajaInicio');
             const ventas = obtenerNumeroLimpio('ventas');
-            const pagoMat = totalAcumuladoComprasDia;
+            const pagoMat = totalAcumuladoComprasDia; 
             const gastosFact = obtenerNumeroLimpio('gastosFact');
 
+            // FÓRMULA: (Caja Inicial + Ventas) - (Compras de Material + Gastos)
             const calculado = (cajaInicio + ventas) - (pagoMat + gastosFact);
-            document.getElementById('cierreMano').value = calculado.toLocaleString('es').replace(/,/g, ' ');
+            document.getElementById('cierreMano').value = "₡" + calculado.toLocaleString('es-CR');
 
             localStorage.setItem(`cajaInicio_${sucursalActual}`, document.getElementById('cajaInicio').value);
             localStorage.setItem(`ventas_${sucursalActual}`, document.getElementById('ventas').value);
@@ -341,7 +346,7 @@
                             <td><b>Fact: #${fact.num_factura}</b></td>
                             <td><b>${fact.nombre}</b><br><small style="color:#555">${fact.cedula}</small></td>
                             <td style="max-width: 250px; font-size:11px; color:#444;">${resumenMats}</td>
-                            <td><b>₡${montoFactura.toLocaleString()}</b></td>
+                            <td><b>₡${montoFactura.toLocaleString('es-CR')}</b></td>
                             <td><button onclick="eliminarFacturaGeneral(${index})" class="btn-del">x</button></td>
                         </tr>
                     `;
@@ -356,9 +361,10 @@
                 });
             }
 
-            document.getElementById('totalFacturasTxt').innerText = totalAcumuladoComprasDia.toLocaleString();
-            document.getElementById('pagoMat').value = totalAcumuladoComprasDia.toLocaleString('es').replace(/,/g, ' ');
+            document.getElementById('totalFacturasTxt').innerText = totalAcumuladoComprasDia.toLocaleString('es-CR');
+            document.getElementById('pagoMat').value = "₡" + totalAcumuladoComprasDia.toLocaleString('es-CR');
 
+            // Fuerza el cálculo financiero con los nuevos datos actualizados
             calcularEfectivoCierreAutomatico();
             renderizarTablaAcumuladosDia(acumuladoMateriales);
         }
@@ -443,7 +449,7 @@
                     timestamp: serverTimestamp()
                 });
 
-                alert(`✅ ${tipo} de ₡${monto.toLocaleString()} registrado perfectamente.`);
+                alert(`✅ ${tipo} de ₡${monto.toLocaleString('es-CR')} registrado perfectamente.`);
                 document.getElementById('montoMovimiento').value = "";
                 await calcularDeudaTotal(); 
             } catch (error) {
@@ -467,7 +473,7 @@
                     <tr>
                         <td><b>${material}</b></td>
                         <td style="color:#1a73e8; font-weight:bold;">${datos.kilos.toFixed(1)} kg</td>
-                        <td><b>₡${datos.costo.toLocaleString()}</b></td>
+                        <td><b>₡${datos.costo.toLocaleString('es-CR')}</b></td>
                     </tr>
                 `;
             }
