@@ -7,9 +7,9 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-        import { getFirestore, doc, getDoc, setDoc, collection, addDoc, writeBatch, serverTimestamp, query, where, getDocs } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        import { getFirestore, doc, getDoc, setDoc, collection, addDoc, writeBatch, serverTimestamp, query, where, getDocs, orderBy, limit } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-    
+        // Configuración de Firebase
         const firebaseConfig = {
             apiKey: "AIzaSyCi409CkmXBbun7-POejbVaIiThK2nZ1JY",
             authDomain: "prestamos-18dd8.firebaseapp.com",
@@ -34,7 +34,7 @@
                 uidTrabajador = user.uid;
                 const emailUsuario = user.email ? user.email.toLowerCase().trim() : "";
 
-                // Validación robusta de sucursales por correo
+                // Validación de sucursales por correo
                 if (emailUsuario.includes("perez")) {
                     sucursalActual = "Perez";
                 } else if (emailUsuario.includes("paraiso")) { 
@@ -60,12 +60,58 @@
 
                 await cargarPreciosDesdeFirebase();
                 await calcularDeudaTotal();
+                await cargarUltimoCierre();
+                await obtenerSiguienteNumeroFactura();
                 actualizarTablaGeneralDia(); 
             } else {
                 document.getElementById('login-section').style.display = 'block';
                 document.getElementById('modulo-principal').style.display = 'none';
             }
         });
+
+        // MODIFICACIÓN 1: Obtener e incrementar el número de factura desde Firebase
+        async function obtenerSiguienteNumeroFactura() {
+            try {
+                const docRef = doc(db, "contadores_facturas", sucursalActual);
+                const docSnap = await getDoc(docRef);
+                let siguienteNum = 1;
+
+                if (docSnap.exists()) {
+                    siguienteNum = (docSnap.data().ultimo_numero || 0) + 1;
+                }
+                document.getElementById('numFacturaCliente').value = siguienteNum;
+            } catch (error) {
+                console.error("Error al obtener número de factura:", error);
+            }
+        }
+
+        // MODIFICACIÓN 2: Cargar solo el dinero de inicio y cierre del último reporte
+        async function cargarUltimoCierre() {
+            try {
+                const q = query(
+                    collection(db, "revisiones_faltantes"),
+                    where("sucursal", "==", sucursalActual),
+                    orderBy("timestamp", "desc"),
+                    limit(1)
+                );
+                const snap = await getDocs(q);
+                if (!snap.empty) {
+                    const datos = snap.docs[0].data();
+                    const inicio = parseFloat(datos.caja_inicio) || 0;
+                    const cierre = parseFloat(datos.cierre_mano) || 0;
+
+                    document.getElementById('infoUltimoCierre').innerHTML = `
+                        <b>📥 Dinero con que inició:</b> ₡${inicio.toLocaleString('es-CR')} | 
+                        <b>📤 Dinero con que cerró:</b> ₡${cierre.toLocaleString('es-CR')} 
+                        <small style="color:#718096;">(${datos.fecha || ''})</small>
+                    `;
+                } else {
+                    document.getElementById('infoUltimoCierre').innerText = "No se encontraron cierres previos registrados.";
+                }
+            } catch (error) {
+                console.error("Error consultando último cierre: ", error);
+            }
+        }
 
         async function cargarPreciosDesdeFirebase() {
             const pDoc = await getDoc(doc(db, "config_precios", uidTrabajador));
@@ -170,7 +216,6 @@
             document.getElementById('matTotalMaterial').value = (precio * kg).toFixed(0);
         };
 
-        // CORREGIDO: Solucionado el ReferenceError de cedulaLinter
         window.validarCedulaTSE = async function() {
             const cedulaInput = document.getElementById('cedulaCliente').value.trim();
             const btn = document.getElementById('btnValidarCed');
@@ -264,8 +309,15 @@
                     nombre: nombre,
                     ultima_actualizacion: serverTimestamp()
                 }, { merge: true });
+
+                // Actualiza contador en Firebase para autoincremento
+                const numActual = parseInt(numFactura) || 0;
+                await setDoc(doc(db, "contadores_facturas", sucursalActual), {
+                    ultimo_numero: numActual
+                }, { merge: true });
+
             } catch (err) {
-                console.error("Error guardando cliente: ", err);
+                console.error("Error guardando cliente o contador: ", err);
             }
 
             let totalFactura = materialesFacturaActual.reduce((sum, item) => sum + item.total_pago, 0);
@@ -287,11 +339,12 @@
             document.getElementById('cedulaCliente').value = "";
             document.getElementById('nombreCliente').value = "";
             document.getElementById('nombreCliente').readOnly = false; 
-            document.getElementById('numFacturaCliente').value = "";
+            
+            // Avanzar automáticamente al siguiente número de factura
+            await obtenerSiguienteNumeroFactura();
             document.getElementById('cedulaCliente').focus();
         };
 
-        // Formateador con puntos como separadores de miles
         window.formatearInputMoneda = (input) => {
             let valor = input.value.replace(/\D/g, "");
             if (valor) {
@@ -302,7 +355,6 @@
             calcularEfectivoCierreAutomatico();
         };
 
-        // CORREGIDO: Remueve todos los puntos, comas y espacios antes de calcular para evitar el bug del parseFloat
         function obtenerNumeroLimpio(idElemento) {
             const inputElement = document.getElementById(idElemento);
             if (!inputElement || !inputElement.value) return 0;
@@ -310,14 +362,12 @@
             return parseFloat(textoLimpio) || 0;
         }
 
-        // CORREGIDO: Fórmula de balance limpia y formateada en es-CR
         window.calcularEfectivoCierreAutomatico = () => {
             const cajaInicio = obtenerNumeroLimpio('cajaInicio');
             const ventas = obtenerNumeroLimpio('ventas');
             const pagoMat = totalAcumuladoComprasDia; 
             const gastosFact = obtenerNumeroLimpio('gastosFact');
 
-            // FÓRMULA: (Caja Inicial + Ventas) - (Compras de Material + Gastos)
             const calculado = (cajaInicio + ventas) - (pagoMat + gastosFact);
             document.getElementById('cierreMano').value = "₡" + calculado.toLocaleString('es-CR');
 
@@ -364,7 +414,6 @@
             document.getElementById('totalFacturasTxt').innerText = totalAcumuladoComprasDia.toLocaleString('es-CR');
             document.getElementById('pagoMat').value = "₡" + totalAcumuladoComprasDia.toLocaleString('es-CR');
 
-            // Fuerza el cálculo financiero con los nuevos datos actualizados
             calcularEfectivoCierreAutomatico();
             renderizarTablaAcumuladosDia(acumuladoMateriales);
         }
@@ -426,10 +475,12 @@
             }
         };
 
+        // MODIFICACIÓN 3: Se añade el campo de 'motivo' al guardar movimientos
         window.guardarMovimientoCuenta = async function() {
             const tipo = document.getElementById('tipoMovimiento').value;
             const monto = obtenerNumeroLimpio('montoMovimiento');
             const fechaMov = document.getElementById('fechaMovimiento').value;
+            const motivo = document.getElementById('motivoMovimiento').value.trim();
 
             if(!monto || monto <= 0 || !fechaMov) {
                 alert("⚠️ Por favor asigne una fecha y un monto válido.");
@@ -446,11 +497,13 @@
                     tipo: tipo, 
                     monto: monto,
                     fecha_operacion: fechaMov,
+                    motivo: motivo || "Sin especificación",
                     timestamp: serverTimestamp()
                 });
 
                 alert(`✅ ${tipo} de ₡${monto.toLocaleString('es-CR')} registrado perfectamente.`);
                 document.getElementById('montoMovimiento').value = "";
+                document.getElementById('motivoMovimiento').value = "";
                 await calcularDeudaTotal(); 
             } catch (error) {
                 alert("Error al guardar el movimiento: " + error.message);
@@ -523,20 +576,13 @@
         .panel-lateral { background: white; padding: 16px; border-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); height: max-content; box-sizing: border-box; }
         .scroll-precios { max-height: 300px; overflow-y: auto; margin-bottom: 12px; border-radius: 8px; }
         
+        .box-ultimo-cierre { background: #edf2f7; border-left: 4px solid #3182ce; padding: 10px 14px; border-radius: 6px; margin-bottom: 15px; font-size: 13px; color: #2d3748; }
+
         @media(max-width: 850px) {
             .grid-layout { grid-template-columns: 1fr; gap: 16px; }
             body { padding: 8px; }
             .card, .panel-lateral { padding: 12px; border-radius: 12px; }
             .seccion-interna { padding: 10px; border-radius: 10px; }
-            
-            div[style*="display: grid; grid-template-columns: 1fr 1fr 1fr;"] {
-                grid-template-columns: 1fr !important;
-                gap: 5px !important;
-            }
-            div[style*="display: grid; grid-template-columns: 1fr 1fr 1fr; gap:10px;"] {
-                grid-template-columns: 1fr !important;
-                gap: 5px !important;
-            }
         }
     </style>
 </head>
@@ -555,6 +601,12 @@
             <button onclick="logout()" style="float: right; background:#ff5252; color:white; border:none; border-radius:6px; padding:6px 12px; cursor:pointer; font-weight:bold; margin-left: 10px; min-height: auto;">Cerrar Sesión</button>
             <h3>📍 Sucursal: <span id="sucursal-txt" style="color:#2e7d32">...</span></h3>
             
+            <!-- TARJETA DEL ÚLTIMO CIERRE -->
+            <div class="box-ultimo-cierre">
+                <span style="font-weight:bold; color:#2b6cb0;">📌 ÚLTIMO CIERRE REALIZADO:</span>
+                <div id="infoUltimoCierre" style="margin-top:4px;">Cargando último cierre...</div>
+            </div>
+
             <div style="max-width: 100%; margin-bottom:15px;">
                 <label>Fecha de Operación</label>
                 <input type="date" id="fecha">
@@ -576,8 +628,8 @@
                         <input type="text" id="nombreCliente" placeholder="Nombre completo">
                     </div>
                     <div>
-                        <label># Número de Factura</label>
-                        <input type="text" id="numFacturaCliente" placeholder="Ej: 00432" style="border: 1px solid #2b6cb0; font-weight: bold;">
+                        <label># Número de Factura (Auto)</label>
+                        <input type="text" id="numFacturaCliente" readonly style="border: 1px solid #2b6cb0; font-weight: bold; background: #e2e8f0; color: #1a365d;">
                     </div>
                 </div>
 
@@ -696,7 +748,7 @@
                 <h4 style="color:#dd6b20; margin-bottom:10px;">📈 3. MOVIMIENTOS INDEPENDIENTES DE CUENTA</h4>
                 <p style="font-size:11px; color:#718096; margin-top:0;">Este módulo envía datos directos e individuales a la base de datos sin alterar tu reporte diario de caja anterior.</p>
                 
-                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap:10px;">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap:10px;">
                     <div>
                         <label>Tipo de Registro</label>
                         <select id="tipoMovimiento">
@@ -708,11 +760,19 @@
                         <label>Monto del Movimiento (₡)</label>
                         <input type="text" id="montoMovimiento" placeholder="Ej: 100 000" oninput="formatearInputMoneda(this)">
                     </div>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap:10px; margin-top: 5px;">
                     <div>
                         <label>Fecha del Movimiento</label>
                         <input type="date" id="fechaMovimiento">
                     </div>
+                    <div>
+                        <label>Motivo / Detalle del Movimiento</label>
+                        <input type="text" id="motivoMovimiento" placeholder="Ej: Pago de flete, abono socio, etc.">
+                    </div>
                 </div>
+
                 <button id="btnGuardarMov" class="btn-blue" style="background:#dd6b20; margin-top:12px;" onclick="guardarMovimientoCuenta()">💾 Registrar en Cuenta Externa</button>
             </div>
             
