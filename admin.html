@@ -3,11 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Panel de Control - Administrador Global</title>
+    <title>Panel de Administración - Control de Inventario y Cajas</title>
+    
+    <!-- Google Fonts para tipografía moderna -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getFirestore, collection, onSnapshot, query, orderBy, limit, getDocs, where } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+        import { getFirestore, collection, query, getDocs, doc, updateDoc, orderBy } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
+        // Configuración de Firebase
         const firebaseConfig = {
             apiKey: "AIzaSyCi409CkmXBbun7-POejbVaIiThK2nZ1JY",
             authDomain: "prestamos-18dd8.firebaseapp.com",
@@ -18,448 +26,946 @@
         };
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
+        const auth = getAuth(app);
 
-        // --- PESTAÑA 1: MONITOREO EN TIEMPO REAL (VISTA GENERAL) ---
-        function monitorearDeudasGlobales() {
-            const movimientosRef = collection(db, "movimientos_cuenta");
+        let todasLasFacturas = [];
+        let todosLosCierres = [];
+        let inventarioMateriales = {};
 
-            onSnapshot(movimientosRef, (snapshot) => {
-                const balances = { "Perez": 0, "Paraiso": 0, "Cartago": 0 };
+        onAuthStateChanged(auth, async (user) => {
+            if (user) {
+                document.getElementById('modulo-admin').style.display = 'block';
+                await cargarDatosGlobales();
+            } else {
+                alert("Por favor inicia sesión primero en el sistema.");
+                window.location.href = "index.html"; 
+            }
+        });
 
-                snapshot.forEach((doc) => {
-                    const mov = doc.data();
-                    const suc = mov.sucursal;
-                    const monto = parseFloat(mov.monto) || 0;
+        window.logoutAdmin = () => signOut(auth).then(() => window.location.reload());
 
-                    if (balances.hasOwnProperty(suc)) {
-                        if (mov.tipo === "Salida_Venta") { balances[suc] += monto; } 
-                        else if (mov.tipo === "Deposito") { balances[suc] -= monto; }
-                    }
+        // Carga masiva inicial de datos desde Firebase
+        async function cargarDatosGlobales() {
+            try {
+                // 1. Cargar Cierres de Caja
+                const qCierres = query(collection(db, "revisiones_faltantes"), orderBy("timestamp", "desc"));
+                const snapCierres = await getDocs(qCierres);
+                todosLosCierres = [];
+                snapCierres.forEach(doc => {
+                    todosLosCierres.push({ id: doc.id, ...doc.data() });
                 });
-                actualizarTarjetasUI(balances);
-            });
-        }
 
-        function actualizarTarjetasUI(balances) {
-            for (const [sucursal, saldo] of Object.entries(balances)) {
-                const txtDeuda = document.getElementById(`deuda-${sucursal}`);
-                const card = document.getElementById(`card-${sucursal}`);
-                if(txtDeuda) txtDeuda.innerText = saldo.toLocaleString();
+                // 2. Cargar Facturas
+                const qFacturas = query(collection(db, "facturas_compras"), orderBy("timestamp", "desc"));
+                const snapFacturas = await getDocs(qFacturas);
+                todasLasFacturas = [];
+                
+                snapFacturas.forEach(doc => {
+                    todasLasFacturas.push({ id: doc.id, ...doc.data() });
+                });
 
-                if (card) {
-                    if (saldo > 0) card.className = "card card-deuda";
-                    else if (saldo < 0) card.className = "card card-favor";
-                    else card.className = "card card-al-dia";
-                }
+                // Renderizar módulos
+                renderizarUltimosCierresPorSucursal();
+                aplicarFiltrosYRenderizar();
+                renderizarCierres();
+
+            } catch (error) {
+                console.error("Error cargando datos en Admin: ", error);
             }
         }
 
-        function monitorearUltimasFacturas() {
-            const q = query(collection(db, "facturas_compras"), orderBy("timestamp", "desc"), limit(15));
-            onSnapshot(q, (snapshot) => {
-                const tbody = document.getElementById('body-historial-facturas');
-                if(!tbody) return;
-                tbody.innerHTML = "";
+        // Procesa y renderiza el último cierre recibido de cada sucursal
+        function renderizarUltimosCierresPorSucursal() {
+            const container = document.getElementById('grid-ultimos-cierres');
+            container.innerHTML = "";
 
-                if(snapshot.empty) {
-                    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:#999;">No hay facturas registradas.</td></tr>`;
-                    return;
-                }
-
-                snapshot.forEach((doc) => {
-                    const fact = doc.data();
-                    let resumenMats = (fact.detalles_materiales || []).map(m => `${m.material} (${m.kilos}kg)`).join(', ');
-                    tbody.innerHTML += `
-                        <tr>
-                            <td><span class="badge badge-sucursal">${fact.sucursal || 'N/A'}</span></td>
-                            <td><b style="color:#1a73e8;">#${fact.num_factura || 'N/A'}</b></td>
-                            <td>${fact.fecha || 'N/A'}</td>
-                            <td><b>${fact.nombre || 'Anónimo'}</b><br><small style="color:#666">${fact.cedula || 'N/A'}</small></td>
-                            <td style="font-size:11px; color:#444; max-width:300px;">${resumenMats}</td>
-                            <td><b style="color:#2e7d32;">₡${(fact.total_factura || 0).toLocaleString()}</b></td>
-                        </tr>
-                    `;
-                });
-            });
-        }
-
-
-        // --- PESTAÑA 2: REPORTES Y FILTROS AVANZADOS ---
-        window.consultarReportesPorFecha = async function() {
-            const fechaInicio = document.getElementById('fechaInicio').value;
-            const fechaFin = document.getElementById('fechaFin').value;
-            const sucFiltro = document.getElementById('sucursalFiltro').value;
-
-            if(!fechaInicio || !fechaFin) {
-                alert("⚠️ Seleccione ambas fechas para filtrar.");
+            if (todosLosCierres.length === 0) {
+                container.innerHTML = `<div style="color:#94a3b8; font-size:13px;">No hay datos de cierres disponibles.</div>`;
                 return;
             }
 
-            const btn = document.getElementById('btnFiltrar');
-            btn.disabled = true; btn.innerText = "Procesando...";
+            // Agrupar el cierre más reciente por cada sucursal
+            const ultimosPorSucursal = {};
 
-            try {
-                // 1. OBTENER FACTURAS DE COMPRA (Entrada de Material a Bodega)
-                let qFacturas = query(
-                    collection(db, "facturas_compras"), 
-                    where("fecha", ">=", fechaInicio), 
-                    where("fecha", "<=", fechaFin)
-                );
-                const queryFacturas = await getDocs(qFacturas);
+            todosLosCierres.forEach(cierre => {
+                const nombreSucursal = (cierre.sucursal || "General").trim();
+                const key = nombreSucursal.toLowerCase();
 
-                let inventarioMateriales = {}; 
-                let listaClientes = [];
-
-                queryFacturas.forEach((doc) => {
-                    const fact = doc.data();
-                    if(sucFiltro !== "Todas" && fact.sucursal !== sucFiltro) return;
-
-                    // Agrupar entradas por tipo de material
-                    (fact.detalles_materiales || []).forEach(m => {
-                        const nombreMat = m.material;
-                        const kg = parseFloat(m.kilos) || 0;
-                        const colones = parseFloat(m.total_pago) || 0;
-
-                        if(!inventarioMateriales[nombreMat]) {
-                            inventarioMateriales[nombreMat] = { comprado_kg: 0, vendido_kg: 0, invertido_compra: 0 };
-                        }
-                        inventarioMateriales[nombreMat].comprado_kg += kg;
-                        inventarioMateriales[nombreMat].invertido_compra += colones;
-                    });
-
-                    listaClientes.push({
-                        sucursal: fact.sucursal,
-                        factura: fact.num_factura,
-                        fecha: fact.fecha,
-                        nombre: fact.nombre,
-                        cedula: fact.cedula,
-                        total: fact.total_factura
-                    });
-                });
-
-                // 2. OBTENER MOVIMIENTOS DE CUENTA (Depósitos y Salidas de Dinero/Material)
-                let qMovimientos = query(
-                    collection(db, "movimientos_cuenta"),
-                    where("fecha_operacion", ">=", fechaInicio),
-                    where("fecha_operacion", "<=", fechaFin)
-                );
-                const queryMovimientos = await getDocs(qMovimientos);
-                
-                let listaMovimientosFinancieros = [];
-                let totalDepositosDinero = 0;
-                let totalSalidasVentasDinero = 0;
-
-                queryMovimientos.forEach((doc) => {
-                    const mov = doc.data();
-                    if(sucFiltro !== "Todas" && mov.sucursal !== sucFiltro) return;
-
-                    const monto = parseFloat(mov.monto) || 0;
-
-                    if (mov.tipo === "Deposito") {
-                        totalDepositosDinero += monto;
-                    } else if (mov.tipo === "Salida_Venta") {
-                        totalSalidasVentasDinero += monto;
-                    }
-
-                    listaMovimientosFinancieros.push({
-                        sucursal: mov.sucursal,
-                        fecha: mov.fecha_operacion,
-                        tipo: mov.tipo,
-                        monto: monto
-                    });
-                });
-
-                // RENDERIZAR TODO EN LA INTERFAZ
-                renderizarInventarioYFinanzas(inventarioMateriales, listaClientes, listaMovimientosFinancieros, totalDepositosDinero, totalSalidasVentasDinero);
-
-            } catch (error) {
-                console.error("Error cargando reporte: ", error);
-                alert("Error: " + error.message);
-            } finally {
-                btn.disabled = false; btn.innerText = "🔍 Generar Reporte";
-            }
-        };
-
-        function renderizarInventarioYFinanzas(materiales, clientes, movimientos, totDepositos, totSalidas) {
-            // 1. Renderizar Inventario de Materiales Fisicos
-            const tMat = document.getElementById('rep-body-materiales');
-            tMat.innerHTML = "";
-            if(Object.keys(materiales).length === 0) {
-                tMat.innerHTML = `<tr><td colspan="3" style="text-align:center; color:#999;">No hay registros de inventario en este rango.</td></tr>`;
-            } else {
-                for (const [nombre, datos] of Object.entries(materiales)) {
-                    // El stock neto calcula lo comprado en este rango de tiempo
-                    let stockNeto = datos.comprado_kg - datos.vendido_kg; 
-                    tMat.innerHTML += `
-                        <tr>
-                            <td><b>${nombre}</b></td>
-                            <td style="color:#2e7d32; font-weight:bold;">+ ${datos.comprado_kg.toFixed(1)} kg</td>
-                            <td style="background:#f8fafc; font-weight:bold;">${stockNeto.toFixed(1)} kg</td>
-                        </tr>`;
+                if (!ultimosPorSucursal[key]) {
+                    ultimosPorSucursal[key] = cierre;
                 }
-            }
+            });
 
-            // 2. Renderizar Resumen del Balance Estadístico de Deudas
-            document.getElementById('monto-resumen-salidas').innerText = totSalidas.toLocaleString();
-            document.getElementById('monto-resumen-depositos').innerText = totDepositos.toLocaleString();
-            
-            const netoDeudaPeriodo = totSalidas - totDepositos;
-            const elementoNeto = document.getElementById('monto-resumen-neto');
-            elementoNeto.innerText = netoDeudaPeriodo.toLocaleString();
-            
-            if(netoDeudaPeriodo > 0) {
-                elementoNeto.style.color = "#b91c1c"; // Aumentó la deuda
-                document.getElementById('txt-resumen-neto').innerText = "Deuda Acumulada en el Rango (Saldo Pendiente)";
-            } else {
-                elementoNeto.style.color = "#047857"; // Se amortizó deuda
-                document.getElementById('txt-resumen-neto').innerText = "Saldo a Favor / Amortización Total del Rango";
-            }
+            // Generar tarjetas para cada sucursal encontrada
+            for (const key in ultimosPorSucursal) {
+                const c = ultimosPorSucursal[key];
+                const nombreSucursal = c.sucursal || "Sucursal";
+                const fecha = c.fecha || "Sin Fecha";
+                const inicio = parseFloat(c.caja_inicio) || 0;
+                
+                let cierreMano = 0;
+                if (typeof c.cierre_mano === 'number') cierreMano = c.cierre_mano;
+                else if (typeof c.cierre_mano === 'string') cierreMano = parseFloat(c.cierre_mano.replace(/[^0-9.-]+/g,"")) || 0;
 
-            // 3. Renderizar Historial Detallado de Movimientos de Cuenta (Auditoría Directa)
-            const tMov = document.getElementById('rep-body-depositos');
-            tMov.innerHTML = "";
-            if(movimientos.length === 0) {
-                tMov.innerHTML = `<tr><td colspan="4" style="text-align:center; color:#999;">No se encontraron depósitos ni salidas de cuenta.</td></tr>`;
-            } else {
-                movimientos.forEach(m => {
-                    let tipoColor = m.tipo === 'Deposito' ? 'color:#047857; background:#ecfdf5;' : 'color:#b91c1c; background:#fff5f5;';
-                    let tipoTexto = m.tipo === 'Deposito' ? '➕ DE PÓSITO (Abonó)' : '➖ SALIDA (Venta/Fió)';
-                    tMov.innerHTML += `
-                        <tr>
-                            <td><span class="badge badge-sucursal">${m.sucursal}</span></td>
-                            <td>${m.fecha}</td>
-                            <td><span class="badge" style="${tipoColor}">${tipoTexto}</span></td>
-                            <td><b>Anclado a Cuenta: ₡${m.monto.toLocaleString()}</b></td>
-                        </tr>`;
-                });
-            }
-
-            // 4. Renderizar Clientes Atendidos
-            const tCli = document.getElementById('rep-body-clientes');
-            tCli.innerHTML = "";
-            if(clientes.length === 0) {
-                tCli.innerHTML = `<tr><td colspan="5" style="text-align:center; color:#999;">No hay clientes en estas fechas.</td></tr>`;
-            } else {
-                clientes.forEach(c => {
-                    tCli.innerHTML += `<tr><td><span class="badge badge-sucursal">${c.sucursal}</span></td><td><b>#${c.factura}</b></td><td>${c.fecha}</td><td><b>${c.nombre}</b> <small>(${c.cedula})</small></td><td><b>₡${c.total.toLocaleString()}</b></td></tr>`;
-                });
+                container.innerHTML += `
+                    <div class="cierre-card">
+                        <div class="cierre-card-header">
+                            <span class="cierre-card-title">Último Cierre: <b>${nombreSucursal}</b></span>
+                            <span class="cierre-card-date">📅 ${fecha}</span>
+                        </div>
+                        <div class="cierre-card-body">
+                            <div class="cierre-stat-box">
+                                <span class="lbl">Inició con:</span>
+                                <span class="val-inicio">₡${inicio.toLocaleString('es-CR')}</span>
+                            </div>
+                            <div class="cierre-stat-box">
+                                <span class="lbl">Cerró con:</span>
+                                <span class="val-cierre">₡${cierreMano.toLocaleString('es-CR')}</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
             }
         }
 
-        window.cambiarPestana = function(pestanaId, e) {
-            document.querySelectorAll('.tab-content').forEach(el => el.style.display = 'none');
-            document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
-            
-            document.getElementById(pestanaId).style.display = 'block';
-            e.currentTarget.classList.add('active');
+        // Calcula cuánto material hay basándose ÚNICAMENTE en las facturas filtradas
+        function calcularInventarioTeorico(facturasParaCalcular) {
+            inventarioMateriales = {};
+            let globalKilos = 0;
+            let globalInversion = 0;
+
+            facturasParaCalcular.forEach(factura => {
+                if (factura.detalles_materiales && Array.isArray(factura.detalles_materiales)) {
+                    factura.detalles_materiales.forEach(m => {
+                        const nombreMat = m.material;
+                        const kilos = parseFloat(m.kilos) || 0;
+                        const costo = parseFloat(m.total_pago) || 0;
+
+                        globalKilos += kilos;
+                        globalInversion += costo;
+
+                        if (!inventarioMateriales[nombreMat]) {
+                            inventarioMateriales[nombreMat] = { kilosTotales: 0, inversionTotal: 0 };
+                        }
+                        inventarioMateriales[nombreMat].kilosTotales += kilos;
+                        inventarioMateriales[nombreMat].inversionTotal += costo;
+                    });
+                }
+            });
+
+            document.getElementById('kpi-facturas-count').innerText = facturasParaCalcular.length;
+            document.getElementById('kpi-kilos-total').innerText = globalKilos.toLocaleString('es-CR', { maximumFractionDigits: 1 }) + " kg";
+            document.getElementById('kpi-inversion-total').innerText = "₡" + globalInversion.toLocaleString('es-CR');
+
+            renderizarInventario();
+        }
+
+        function renderizarInventario() {
+            const tbody = document.getElementById('body-inventario-admin');
+            tbody.innerHTML = "";
+
+            if (Object.keys(inventarioMateriales).length === 0) {
+                tbody.innerHTML = `<tr><td colspan="3" style="text-align:center; color:#94a3b8; padding: 20px;">No hay materiales acumulados para este filtro.</td></tr>`;
+                return;
+            }
+
+            for (const [material, datos] of Object.entries(inventarioMateriales)) {
+                tbody.innerHTML += `
+                    <tr>
+                        <td>
+                            <div class="material-tag">
+                                📦 <span>${material}</span>
+                            </div>
+                        </td>
+                        <td style="color:#059669; font-weight:700; font-size:14px;">
+                            ${datos.kilosTotales.toLocaleString('es-CR', { minimumFractionDigits: 1, maximumFractionDigits: 2 })} kg
+                        </td>
+                        <td style="font-weight:600; color:#1e293b;">₡${datos.inversionTotal.toLocaleString('es-CR')}</td>
+                    </tr>
+                `;
+            }
+        }
+
+        // Actualiza el banner destacado con el resumen del día/sucursal
+        function actualizarBannerDestacado(sucursal, fecha) {
+            const banner = document.getElementById('banner-destacado');
+            if (!sucursal && !fecha) {
+                banner.style.display = 'none';
+                return;
+            }
+
+            banner.style.display = 'block';
+            document.getElementById('banner-sucursal-nombre').innerText = sucursal ? `SUCURSAL: ${sucursal.toUpperCase()}` : 'TODAS LAS SUCURSALES';
+            document.getElementById('banner-fecha-texto').innerText = fecha ? `📅 Día: ${fecha}` : '📅 Todas las Fechas';
+
+            let cierresCoincidentes = todosLosCierres.filter(c => {
+                const coincideSuc = sucursal ? (c.sucursal && c.sucursal.toLowerCase() === sucursal.toLowerCase()) : true;
+                const coincideFec = fecha ? (c.fecha === fecha) : true;
+                return coincideSuc && coincideFec;
+            });
+
+            let cajaInicio = 0;
+            let ventas = 0;
+            let pagoMateriales = 0;
+            let otrosGastos = 0;
+            let efectivoMano = 0;
+
+            cierresCoincidentes.forEach(c => {
+                cajaInicio += parseFloat(c.caja_inicio) || 0;
+                ventas += parseFloat(c.total_ventas) || 0;
+                pagoMateriales += parseFloat(c.pago_materiales || c.pago_materials) || 0;
+                otrosGastos += parseFloat(c.gastos_facturas || c.otros_gastos || c.gastos_varios) || 0;
+                
+                let valMano = 0;
+                if (typeof c.cierre_mano === 'number') valMano = c.cierre_mano;
+                else if (typeof c.cierre_mano === 'string') valMano = parseFloat(c.cierre_mano.replace(/[^0-9.-]+/g,"")) || 0;
+                efectivoMano += valMano;
+            });
+
+            document.getElementById('banner-caja-inicio').innerText = "₡" + cajaInicio.toLocaleString('es-CR');
+            document.getElementById('banner-ventas').innerText = "₡" + ventas.toLocaleString('es-CR');
+            document.getElementById('banner-gastos-mat').innerText = "₡" + pagoMateriales.toLocaleString('es-CR');
+            document.getElementById('banner-gastos-otros').innerText = "₡" + otrosGastos.toLocaleString('es-CR');
+            document.getElementById('banner-efectivo-mano').innerText = "₡" + efectivoMano.toLocaleString('es-CR');
+        }
+
+        // Filtra dinámicamente las facturas y recalcula inventarios y métricas
+        window.aplicarFiltrosYRenderizar = () => {
+            const busquedaNum = document.getElementById('buscarNumFactura').value.trim().toLowerCase();
+            const filtroSucursal = document.getElementById('filtroSucursalFact').value;
+            const filtroFecha = document.getElementById('filtroFechaFact').value;
+            const filtroEstado = document.getElementById('filtroEstadoFact').value;
+
+            actualizarBannerDestacado(filtroSucursal, filtroFecha);
+
+            const tbody = document.getElementById('body-facturas-admin');
+            tbody.innerHTML = "";
+
+            const facturasFiltradas = todasLasFacturas.filter(factura => {
+                const coincideNum = factura.num_factura ? factura.num_factura.toLowerCase().includes(busquedaNum) : true;
+                const coincideSucursal = filtroSucursal ? (factura.sucursal && factura.sucursal.toLowerCase() === filtroSucursal.toLowerCase()) : true;
+                const coincideFecha = filtroFecha ? factura.fecha === filtroFecha : true;
+                
+                let coincideEstado = true;
+                if (filtroEstado) {
+                    const cierreAsociado = todosLosCierres.find(c => c.id === factura.cierre_id);
+                    const estadoCierre = cierreAsociado ? cierreAsociado.estado : "Pendiente";
+                    coincideEstado = (estadoCierre === filtroEstado);
+                }
+
+                return coincideNum && coincideSucursal && coincideFecha && coincideEstado;
+            });
+
+            calcularInventarioTeorico(facturasFiltradas);
+
+            if (facturasFiltradas.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:#94a3b8; padding: 25px;">No se encontraron facturas coincidentes con los criterios de búsqueda.</td></tr>`;
+                return;
+            }
+
+            facturasFiltradas.forEach(fact => {
+                let resumenMats = fact.detalles_materiales ? fact.detalles_materiales.map(m => `${m.material} (${m.kilos.toLocaleString('es-CR')}kg)`).join(', ') : "Sin detalle";
+                const monto = parseFloat(fact.total_factura) || 0;
+
+                const cierreAsociado = todosLosCierres.find(c => c.id === fact.cierre_id);
+                const estadoFact = cierreAsociado ? cierreAsociado.estado : "Pendiente";
+                const badgeEstadoClass = estadoFact === 'Pendiente' ? 'status-pendiente' : 'status-aprobado';
+
+                tbody.innerHTML += `
+                    <tr>
+                        <td><span class="badge-sucursal">${fact.sucursal || 'General'}</span></td>
+                        <td><b style="color:#0f172a;"># ${fact.num_factura || 'N/A'}</b></td>
+                        <td>
+                            <div style="font-weight:600; color:#1e293b;">${fact.nombre || 'Anónimo'}</div>
+                            <small style="color:#64748b;">${fact.cedula || 'Sin Identificación'}</small>
+                        </td>
+                        <td><div class="material-detail-text">${resumenMats}</div></td>
+                        <td style="font-weight:700; color:#2563eb; font-size:14px;">₡${monto.toLocaleString('es-CR')}</td>
+                        <td>
+                            <div style="font-size:12px; color:#475569; font-weight:500;">${fact.fecha || 'Sin Fecha'}</div>
+                            <span class="status-badge ${badgeEstadoClass}">${estadoFact}</span>
+                        </td>
+                    </tr>
+                `;
+            });
         };
 
-        document.addEventListener("DOMContentLoaded", () => {
-            monitorearDeudasGlobales();
-            monitorearUltimasFacturas();
-            
-            const hoy = new Date().toISOString().split('T')[0];
-            document.getElementById('fechaFin').value = hoy;
-            document.getElementById('fechaInicio').value = hoy;
-        });
+        // Renderiza los cierres financieros de caja en la tabla
+        function renderizarCierres() {
+            const tbody = document.getElementById('body-cierres-admin');
+            tbody.innerHTML = "";
+
+            if (todosLosCierres.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; color:#94a3b8; padding: 25px;">No se han recibido reportes de cierres de caja.</td></tr>`;
+                return;
+            }
+
+            todosLosCierres.forEach(cierre => {
+                const estadoClass = cierre.estado === 'Pendiente' ? 'status-pendiente' : 'status-aprobado';
+                tbody.innerHTML += `
+                    <tr>
+                        <td><b>${cierre.sucursal}</b></td>
+                        <td><span style="color:#475569; font-weight:500;">${cierre.fecha}</span></td>
+                        <td style="color:#334155;">₡${(cierre.caja_inicio || 0).toLocaleString('es-CR')}</td>
+                        <td style="color:#334155;">₡${(cierre.total_ventas || 0).toLocaleString('es-CR')}</td>
+                        <td style="color:#dc2626; font-weight:600;">₡${(cierre.pago_materiales || cierre.pago_materials || 0).toLocaleString('es-CR')}</td>
+                        <td style="color:#059669; font-weight:700; font-size:14px;">₡${(parseFloat(cierre.cierre_mano) || 0).toLocaleString('es-CR')}</td>
+                        <td>
+                            <div style="display:flex; align-items:center; gap:8px;">
+                                <span class="status-badge ${estadoClass}">${cierre.estado || 'Pendiente'}</span>
+                                ${cierre.estado === 'Pendiente' ? `<button class="btn-approve" onclick="aprobarCierreCaja('${cierre.id}')">Aprobar</button>` : ''}
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+
+        window.aprobarCierreCaja = async (idCierre) => {
+            if (!confirm("¿Desea marcar este cierre de caja como aprobado y revisado?")) return;
+            try {
+                const docRef = doc(db, "revisiones_faltantes", idCierre);
+                await updateDoc(docRef, { estado: "Aprobado" });
+                alert("✅ Cierre aprobado correctamente.");
+                await cargarDatosGlobales();
+            } catch (error) {
+                alert("Error al aprobar: " + error.message);
+            }
+        };
+
+        window.refrescarPanelAdmin = () => cargarDatosGlobales();
     </script>
+
     <style>
-        body { font-family: 'Segoe UI', sans-serif; background: #f4f6f9; padding: 25px; margin: 0; color: #333; }
-        .header-panel { background: #1a73e8; color: white; padding: 20px; border-radius: 12px; margin-bottom: 25px; box-shadow: 0 4px 12px rgba(26,115,232,0.2); }
-        .header-panel h1 { margin: 0; font-size: 24px; }
-        .header-panel p { margin: 5px 0 0 0; font-size: 14px; opacity: 0.9; }
-        
-        .tabs-container { display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; }
-        .tab-btn { background: #e2e8f0; color: #475569; border: none; padding: 12px 24px; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 14px; }
-        .tab-btn.active { background: #1a73e8; color: white; }
-        .tab-content { display: none; }
+        :root {
+            --bg-main: #f8fafc;
+            --surface: #ffffff;
+            --primary: #2563eb;
+            --primary-hover: #1d4ed8;
+            --text-dark: #0f172a;
+            --text-muted: #64748b;
+            --border-color: #e2e8f0;
+            --radius-lg: 12px;
+            --radius-md: 8px;
+            --shadow-sm: 0 1px 3px rgba(0,0,0,0.05);
+        }
 
-        .grid-sucursales { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; margin-bottom: 30px; }
-        .card { background: white; padding: 24px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); border-left: 6px solid #cbd5e1; }
-        .card h3 { margin: 0 0 5px 0; color: #475569; font-size: 14px; text-transform: uppercase; }
-        .card .monto { font-size: 28px; font-weight: bold; margin: 10px 0; }
-        .card .status-txt { font-size: 11px; color: #64748b; }
-        
-        .card-deuda { border-left-color: #ef4444; background: #fff5f5; } .card-deuda .monto { color: #b91c1c; }
-        .card-favor { border-left-color: #3b82f6; background: #eff6ff; } .card-favor .monto { color: #1d4ed8; }
-        .card-al-dia { border-left-color: #10b981; background: #ecfdf5; } .card-al-dia .monto { color: #047857; }
+        body { 
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; 
+            background: var(--bg-main); 
+            margin: 0; 
+            padding: 24px; 
+            color: var(--text-dark); 
+            -webkit-font-smoothing: antialiased;
+        }
 
-        .section-table { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); margin-bottom: 25px; }
-        .section-table h2 { margin-top: 0; font-size: 17px; color: #1e293b; border-bottom: 2px solid #f1f5f9; padding-bottom: 10px; }
-        table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 13px; }
-        th { background: #f8fafc; padding: 12px; font-weight: 600; color: #64748b; border-bottom: 2px solid #e2e8f0; text-align: left; }
-        td { padding: 12px; border-bottom: 1px solid #f1f5f9; vertical-align: middle; }
-        tr:hover { background: #f8fafc; }
-        
-        .badge { padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; }
-        .badge-sucursal { background: #e2e8f0; color: #475569; border: 1px solid #cbd5e1; text-transform: uppercase; }
+        .header-admin { 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            background: var(--surface); 
+            padding: 18px 24px; 
+            border-radius: var(--radius-lg); 
+            margin-bottom: 20px; 
+            box-shadow: var(--shadow-sm); 
+            border: 1px solid var(--border-color);
+        }
 
-        .filter-bar { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); margin-bottom: 25px; display: flex; gap: 15px; align-items: flex-end; flex-wrap: wrap; }
-        .filter-group { display: flex; flex-direction: column; gap: 5px; }
-        .filter-group label { font-size: 12px; font-weight: bold; color: #475569; }
-        .filter-group input, .filter-group select { padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 14px; min-width: 150px; }
-        .btn-search { background: #1a73e8; color: white; border: none; padding: 11px 24px; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 14px; }
-        
-        .report-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 15px; }
-        .mini-box-balance { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 15px; margin-bottom: 15px; }
+        .header-admin h2 { 
+            margin: 0; 
+            font-size: 20px; 
+            font-weight: 700;
+            color: var(--text-dark);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        /* BANNER DE ÚLTIMOS CIERRES ARRIBA */
+        .section-ultimos-cierres {
+            margin-bottom: 20px;
+        }
+
+        .section-ultimos-cierres h3 {
+            margin: 0 0 12px 0;
+            font-size: 15px;
+            font-weight: 700;
+            color: var(--text-dark);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .grid-ultimos-cierres {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 14px;
+        }
+
+        .cierre-card {
+            background: var(--surface);
+            border: 1px solid var(--border-color);
+            border-top: 4px solid var(--primary);
+            border-radius: var(--radius-md);
+            padding: 14px 16px;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .cierre-card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+            padding-bottom: 6px;
+            border-bottom: 1px solid #f1f5f9;
+        }
+
+        .cierre-card-title {
+            font-size: 13px;
+            color: var(--text-dark);
+        }
+
+        .cierre-card-date {
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--text-muted);
+            background: #f1f5f9;
+            padding: 2px 8px;
+            border-radius: 10px;
+        }
+
+        .cierre-card-body {
+            display: flex;
+            justify-content: space-between;
+            gap: 10px;
+        }
+
+        .cierre-stat-box {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .cierre-stat-box .lbl {
+            font-size: 11px;
+            color: var(--text-muted);
+            font-weight: 500;
+        }
+
+        .cierre-stat-box .val-inicio {
+            font-size: 15px;
+            font-weight: 700;
+            color: #475569;
+        }
+
+        .cierre-stat-box .val-cierre {
+            font-size: 15px;
+            font-weight: 800;
+            color: #059669;
+        }
+
+        /* KPIs */
+        .kpi-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+
+        .kpi-card {
+            background: var(--surface);
+            padding: 16px 20px;
+            border-radius: var(--radius-lg);
+            border: 1px solid var(--border-color);
+            box-shadow: var(--shadow-sm);
+        }
+
+        .kpi-card .label {
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            letter-spacing: 0.5px;
+            margin-bottom: 6px;
+        }
+
+        .kpi-card .value {
+            font-size: 22px;
+            font-weight: 700;
+            color: var(--text-dark);
+        }
+
+        /* Banner Destacado */
+        .hero-banner {
+            background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+            color: white;
+            border-radius: var(--radius-lg);
+            padding: 20px 24px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.25);
+            display: none;
+            animation: fadeIn 0.3s ease-in-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .hero-banner-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+            padding-bottom: 12px;
+            margin-bottom: 16px;
+        }
+
+        .hero-banner-title {
+            font-size: 24px;
+            font-weight: 800;
+            color: #38bdf8;
+            letter-spacing: -0.5px;
+            margin: 0;
+        }
+
+        .hero-banner-date {
+            font-size: 14px;
+            font-weight: 600;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 6px 14px;
+            border-radius: 20px;
+            color: #e2e8f0;
+        }
+
+        .hero-banner-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            gap: 16px;
+        }
+
+        .hero-stat {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 12px 16px;
+            border-radius: var(--radius-md);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .hero-stat .hero-label {
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            color: #94a3b8;
+            letter-spacing: 0.5px;
+            margin-bottom: 4px;
+        }
+
+        .hero-stat .hero-value {
+            font-size: 18px;
+            font-weight: 700;
+            color: #ffffff;
+        }
+
+        .grid-main { 
+            display: grid; 
+            grid-template-columns: 1fr 360px; 
+            gap: 20px; 
+        }
+
+        @media (max-width: 1024px) {
+            .grid-main {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .card { 
+            background: var(--surface); 
+            padding: 20px; 
+            border-radius: var(--radius-lg); 
+            box-shadow: var(--shadow-sm); 
+            margin-bottom: 20px; 
+            border: 1px solid var(--border-color);
+        }
+
+        .card-header {
+            margin-bottom: 16px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .card-header h3 { 
+            margin: 0; 
+            color: var(--text-dark); 
+            font-size: 16px; 
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .card-subtitle {
+            font-size: 12px; 
+            color: var(--text-muted); 
+            margin-top: 4px;
+            margin-bottom: 0;
+        }
+
+        .filter-row { 
+            display: grid; 
+            grid-template-columns: 2fr 1fr 1fr 1fr; 
+            gap: 10px; 
+            margin-bottom: 16px; 
+            background: #f1f5f9; 
+            padding: 10px; 
+            border-radius: var(--radius-md); 
+        }
+
+        @media (max-width: 640px) {
+            .filter-row {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        input, select { 
+            width: 100%; 
+            padding: 8px 12px; 
+            border: 1px solid var(--border-color); 
+            border-radius: var(--radius-md); 
+            box-sizing: border-box; 
+            font-size: 13px; 
+            height: 38px; 
+            background: var(--surface);
+            color: var(--text-dark);
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        input:focus, select:focus {
+            border-color: var(--primary);
+        }
+
+        .table-responsive { 
+            width: 100%; 
+            overflow-x: auto; 
+            border: 1px solid var(--border-color); 
+            border-radius: var(--radius-md); 
+            background: var(--surface); 
+        }
+
+        table { 
+            width: 100%; 
+            border-collapse: collapse; 
+            font-size: 13px; 
+            text-align: left; 
+        }
+
+        th { 
+            background: #f8fafc; 
+            padding: 10px 14px; 
+            font-weight: 600; 
+            color: var(--text-muted); 
+            border-bottom: 1px solid var(--border-color); 
+            text-transform: uppercase;
+            font-size: 11px;
+            letter-spacing: 0.5px;
+        }
+
+        td { 
+            padding: 12px 14px; 
+            border-bottom: 1px solid var(--border-color); 
+            vertical-align: middle; 
+        }
+
+        tr:last-child td {
+            border-bottom: none;
+        }
+
+        tr:hover { 
+            background: #f8fafc; 
+        }
+
+        .material-detail-text {
+            font-size: 12px; 
+            max-width: 230px; 
+            color: #475569;
+            line-height: 1.4;
+        }
+
+        .material-tag {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-weight: 600;
+        }
+
+        .badge-sucursal { 
+            background: #e0f2fe; 
+            color: #0369a1; 
+            padding: 3px 8px; 
+            border-radius: 4px; 
+            font-weight: 600; 
+            font-size: 11px; 
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+        }
+
+        .status-badge { 
+            padding: 3px 8px; 
+            border-radius: 12px; 
+            font-size: 11px; 
+            font-weight: 600; 
+            display: inline-block; 
+            margin-top: 2px;
+        }
+
+        .status-pendiente { 
+            background: #fef3c7; 
+            color: #b45309; 
+        }
+
+        .status-aprobado { 
+            background: #dcfce7; 
+            color: #15803d; 
+        }
+
+        .btn-logout { 
+            background: #ef4444; 
+            color: white; 
+            border: none; 
+            padding: 8px 14px; 
+            border-radius: var(--radius-md); 
+            font-weight: 600; 
+            font-size: 13px;
+            cursor: pointer; 
+            transition: background 0.2s;
+        }
+
+        .btn-logout:hover {
+            background: #dc2626;
+        }
+
+        .btn-refresh { 
+            background: #0d9488; 
+            color: white; 
+            border: none; 
+            padding: 8px 14px; 
+            border-radius: var(--radius-md); 
+            font-weight: 600; 
+            font-size: 13px;
+            cursor: pointer; 
+            transition: background 0.2s;
+        }
+
+        .btn-refresh:hover {
+            background: #0f766e;
+        }
+
+        .btn-approve { 
+            background: var(--primary); 
+            color: white; 
+            border: none; 
+            padding: 4px 10px; 
+            border-radius: 4px; 
+            font-weight: 600; 
+            cursor: pointer; 
+            font-size: 11px; 
+            transition: background 0.2s;
+        }
+
+        .btn-approve:hover {
+            background: var(--primary-hover);
+        }
+
+        .scroll-panel { 
+            max-height: 420px; 
+            overflow-y: auto; 
+        }
+
+        .sticky-card {
+            position: sticky; 
+            top: 20px;
+        }
     </style>
 </head>
 <body>
 
-    <div class="header-panel">
-        <h1>📊 Panel de Administración Global</h1>
-        <p>Control centralizado de operaciones y auditorías financieras globales.</p>
-    </div>
-
-    <div class="tabs-container">
-        <button class="tab-btn active" onclick="cambiarPestana('vista-general', event)">🏠 Vista General (Tiempo Real)</button>
-        <button class="tab-btn" onclick="cambiarPestana('reportes-fecha', event)">🔍 Reportes e Inventario por Rango</button>
-    </div>
-
-    <!-- PESTAÑA 1: VISTA GENERAL -->
-    <div id="vista-general" class="tab-content" style="display: block;">
-        <div class="grid-sucursales">
-            <div id="card-Perez" class="card">
-                <h3>Sucursal Pérez Zeledón</h3>
-                <div class="monto">₡<span id="deuda-Perez">0</span></div>
-                <div class="status-txt">● Sincronizado en tiempo real</div>
-            </div>
-            <div id="card-Paraiso" class="card">
-                <h3>Sucursal Paraíso</h3>
-                <div class="monto">₡<span id="deuda-Paraiso">0</span></div>
-                <div class="status-txt">● Sincronizado en tiempo real</div>
-            </div>
-            <div id="card-Cartago" class="card">
-                <h3>Sucursal Cartago</h3>
-                <div class="monto">₡<span id="deuda-Cartago">0</span></div>
-                <div class="status-txt">● Sincronizado en tiempo real</div>
-            </div>
-        </div>
-
-        <div class="section-table">
-            <h2>🧾 Historial de Últimas Facturas Recibidas (Flujo Diario)</h2>
-            <table>
-                <thead>
-                    <tr>
-                        <th>Sucursal</th>
-                        <th># Factura</th>
-                        <th>Fecha</th>
-                        <th>Cliente / Proveedor</th>
-                        <th>Detalle Materiales</th>
-                        <th>Total Pago</th>
-                    </tr>
-                </thead>
-                <tbody id="body-historial-facturas">
-                    <tr><td colspan="6" style="text-align:center; color:#999;">Conectando a base de datos...</td></tr>
-                </tbody>
-            </table>
-        </div>
-    </div>
-
-    <!-- PESTAÑA 2: REPORTES POR FECHA -->
-    <div id="reportes-fecha" class="tab-content">
+    <div id="modulo-admin" style="display:none;">
         
-        <div class="filter-bar">
-            <div class="filter-group">
-                <label>Desde:</label>
-                <input type="date" id="fechaInicio">
+        <!-- Header Principal -->
+        <div class="header-admin">
+            <h2>📈 Panel Central de Administración</h2>
+            <div class="header-actions">
+                <button class="btn-refresh" onclick="refrescarPanelAdmin()">🔄 Sincronizar BD</button>
+                <button class="btn-logout" onclick="logoutAdmin()">Cerrar Sesión</button>
             </div>
-            <div class="filter-group">
-                <label>Hasta:</label>
-                <input type="date" id="fechaFin">
-            </div>
-            <div class="filter-group">
-                <label>Sucursal:</label>
-                <select id="sucursalFiltro">
-                    <option value="Todas">🌍 Todas las sucursales</option>
-                    <option value="Perez">Pérez Zeledón</option>
-                    <option value="Paraiso">Paraíso</option>
-                    <option value="Cartago">Cartago</option>
-                </select>
-            </div>
-            <button id="btnFiltrar" class="btn-search" onclick="consultarReportesPorFecha()">🔍 Generar Reporte</button>
         </div>
 
-        <!-- Fila de Contenido Doble -->
-        <div class="report-grid">
-            
-            <!-- Bloque 1: INVENTARIO DE MATERIALES -->
-            <div class="section-table">
-                <h2>📦 Movimiento Físico de Inventario</h2>
-                <p style="font-size:11px; margin-top:-8px; color:#64748b;">Muestra las toneladas acumuladas ingresadas por facturas de clientes en el rango seleccionado.</p>
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Nombre del Material</th>
-                            <th>Kilos Ingresados (+)</th>
-                            <th>Stock Neto Actual</th>
-                        </tr>
-                    </thead>
-                    <tbody id="rep-body-materiales">
-                        <tr><td colspan="3" style="text-align:center; color:#999;">Establezca las fechas arriba.</td></tr>
-                    </tbody>
-                </table>
+        <!-- ÚLTIMOS CIERRES POR SUCURSAL -->
+        <div class="section-ultimos-cierres">
+            <h3>📌 Últimos Cierres Registrados por Sucursal</h3>
+            <div class="grid-ultimos-cierres" id="grid-ultimos-cierres">
+                <!-- Se llena dinámicamente con JS -->
             </div>
+        </div>
 
-            <!-- Bloque 2: SEGUIMIENTO DE CUENTAS, DEPÓSITOS Y SALIDAS -->
+        <!-- Métricas Dinámicas (KPIs) -->
+        <div class="kpi-container">
+            <div class="kpi-card">
+                <div class="label">Total Facturas Filtradas</div>
+                <div class="value" id="kpi-facturas-count">0</div>
+            </div>
+            <div class="kpi-card">
+                <div class="label">Inversión Total Filtrada</div>
+                <div class="value" id="kpi-inversion-total" style="color: var(--primary);">₡0</div>
+            </div>
+            <div class="kpi-card">
+                <div class="label">Materia Prima Registrada</div>
+                <div class="value" id="kpi-kilos-total" style="color: #059669;">0 kg</div>
+            </div>
+        </div>
+
+        <div class="grid-main">
+            
+            <!-- Columna Izquierda: Facturas y Cierres -->
             <div>
-                <div class="section-table" style="margin-bottom:15px;">
-                    <h2>📈 Balance Financiero de Deuda (En estas Fechas)</h2>
-                    <div class="mini-box-balance">
-                        <div style="display:flex; justify-content:space-between; margin-bottom:8px;">
-                            <span>Salidas / Ventas Realizadas (Aumenta deuda):</span>
-                            <b style="color:#b91c1c;">₡<span id="monto-resumen-salidas">0</span></b>
+                <!-- Módulo Facturas -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3>🔍 Filtro y Búsqueda Avanzada de Facturas</h3>
+                    </div>
+                    
+                    <div class="filter-row">
+                        <div>
+                            <input type="text" id="buscarNumFactura" placeholder="🔎 Buscar por número de factura..." oninput="aplicarFiltrosYRenderizar()">
                         </div>
-                        <div style="display:flex; justify-content:space-between; margin-bottom:8px; border-bottom:1px solid #e2e8f0; padding-bottom:8px;">
-                            <span>Depósitos / Abonos Recibidos (Disminuye deuda):</span>
-                            <b style="color:#047857;">₡<span id="monto-resumen-depositos">0</span></b>
+                        <div>
+                            <select id="filtroEstadoFact" onchange="aplicarFiltrosYRenderizar()">
+                                <option value="">✅ Todos los Estados</option>
+                                <option value="Aprobado">Aprobados</option>
+                                <option value="Pendiente">Pendientes</option>
+                            </select>
                         </div>
-                        <div style="display:flex; justify-content:space-between; padding-top:4px; font-size:14px; font-weight:bold;">
-                            <span id="txt-resumen-neto">Balance de Deuda en el Período:</span>
-                            <span>₡<span id="monto-resumen-neto">0</span></span>
+                        <div>
+                            <select id="filtroSucursalFact" onchange="aplicarFiltrosYRenderizar()">
+                                <option value="">🏢 Todas las Sucursales</option>
+                                <option value="Perez">Pérez</option>
+                                <option value="Paraiso">Paraíso</option>
+                                <option value="Cartago">Cartago</option>
+                            </select>
+                        </div>
+                        <div>
+                            <input type="date" id="filtroFechaFact" onchange="aplicarFiltrosYRenderizar()">
+                        </div>
+                    </div>
+
+                    <!-- BANNER DESTACADO DE RESUMEN -->
+                    <div id="banner-destacado" class="hero-banner">
+                        <div class="hero-banner-header">
+                            <h2 class="hero-banner-title" id="banner-sucursal-nombre">SUCURSAL: PÉREZ</h2>
+                            <span class="hero-banner-date" id="banner-fecha-texto">📅 Día: 2026-08-09</span>
+                        </div>
+                        <div class="hero-banner-grid">
+                            <div class="hero-stat">
+                                <div class="hero-label">💵 Caja Inicial</div>
+                                <div class="hero-value" id="banner-caja-inicio">₡0</div>
+                            </div>
+                            <div class="hero-stat">
+                                <div class="hero-label">📈 Ventas</div>
+                                <div class="hero-value" id="banner-ventas" style="color:#4ade80;">₡0</div>
+                            </div>
+                            <div class="hero-stat">
+                                <div class="hero-label">📦 Gastos Materiales</div>
+                                <div class="hero-value" id="banner-gastos-mat" style="color:#f87171;">₡0</div>
+                            </div>
+                            <div class="hero-stat">
+                                <div class="hero-label">💸 Otros Gastos</div>
+                                <div class="hero-value" id="banner-gastos-otros" style="color:#fbbf24;">₡0</div>
+                            </div>
+                            <div class="hero-stat">
+                                <div class="hero-label">💰 Efectivo en Mano</div>
+                                <div class="hero-value" id="banner-efectivo-mano" style="color:#38bdf8;">₡0</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="scroll-panel">
+                        <div class="table-responsive">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Sucursal</th>
+                                        <th>Factura</th>
+                                        <th>Cliente / Cédula</th>
+                                        <th>Detalle Materiales</th>
+                                        <th>Invertido</th>
+                                        <th>Fecha / Estado</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="body-facturas-admin">
+                                    <tr><td colspan="6" style="text-align:center; color:#94a3b8; padding: 20px;">Cargando historial de facturas...</td></tr>
+                                </tbody>
+                            </table>
                         </div>
                     </div>
                 </div>
 
-                <div class="section-table">
-                    <h2>💰 Historial Clínico de Depósitos y Salidas Individuales</h2>
-                    <div style="max-height: 250px; overflow-y:auto;">
+                <!-- Módulo Cierres de Caja -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3>💰 Control y Aprobación de Cierres de Caja</h3>
+                    </div>
+                    <div class="table-responsive">
                         <table>
                             <thead>
                                 <tr>
                                     <th>Sucursal</th>
                                     <th>Fecha</th>
-                                    <th>Tipo</th>
-                                    <th>Monto Operación</th>
+                                    <th>Caja Inicio</th>
+                                    <th>Ventas</th>
+                                    <th>Compras Material</th>
+                                    <th>Efectivo Mano</th>
+                                    <th>Estado / Acción</th>
                                 </tr>
                             </thead>
-                            <tbody id="rep-body-depositos">
-                                <tr><td colspan="4" style="text-align:center; color:#999;">Establezca las fechas arriba.</td></tr>
+                            <tbody id="body-cierres-admin">
+                                <tr><td colspan="7" style="text-align:center; color:#94a3b8; padding: 20px;">Cargando cierres de sucursales...</td></tr>
                             </tbody>
                         </table>
                     </div>
                 </div>
             </div>
 
-        </div>
+            <!-- Columna Derecha: Inventario Teórico Lateral -->
+            <div>
+                <div class="card sticky-card">
+                    <div class="card-header">
+                        <h3>📦 Inventario Teórico en Bodega</h3>
+                        <p class="card-subtitle">
+                            Muestra el pesaje total acumulado según los filtros aplicados en el panel principal.
+                        </p>
+                    </div>
+                    
+                    <div class="table-responsive">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Material</th>
+                                    <th>Stock</th>
+                                    <th>Invertido</th>
+                                </tr>
+                            </thead>
+                            <tbody id="body-inventario-admin">
+                                <tr><td colspan="3" style="text-align:center; color:#94a3b8; padding: 20px;">Calculando stock disponible...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
 
-        <!-- Tabla Completa de Clientes Atendidos -->
-        <div class="section-table" style="margin-top: 20px;">
-            <h2>👥 Clientes / Proveedores Atendidos en el Rango</h2>
-            <table>
-                <thead>
-                    <tr>
-                        <th>Sucursal</th>
-                        <th># Factura</th>
-                        <th>Fecha</th>
-                        <th>Cliente / Cédula</th>
-                        <th>Total Pagado</th>
-                    </tr>
-                </thead>
-                <tbody id="rep-body-clientes">
-                    <tr><td colspan="5" style="text-align:center; color:#999;">Establezca las fechas arriba.</td></tr>
-                </tbody>
-            </table>
         </div>
 
     </div>
