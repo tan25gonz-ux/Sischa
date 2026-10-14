@@ -51,7 +51,6 @@
             line-height: 1.5;
         }
 
-        /* LOGIN */
         .login-wrap { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; }
         .login-box {
             background: white;
@@ -75,7 +74,6 @@
         .login-box h2 { margin: 0 0 8px; font-size: 24px; font-weight: 800; color: var(--gray-900); }
         .login-box p.subtitle { margin: 0 0 24px; color: var(--gray-500); font-size: 14px; }
 
-        /* LAYOUT PRINCIPAL */
         .app-container { max-width: 1440px; margin: 0 auto; padding: 20px; }
         .app-header {
             background: linear-gradient(135deg, var(--primary) 0%, var(--purple) 100%);
@@ -98,7 +96,6 @@
 
         .grid-layout { display: grid; grid-template-columns: 1fr 360px; gap: 20px; }
 
-        /* CARDS */
         .card {
             background: white;
             padding: 22px;
@@ -109,7 +106,6 @@
         .card-title { display: flex; align-items: center; gap: 10px; margin: 0 0 18px; font-size: 16px; font-weight: 700; color: var(--gray-800); }
         .card-title .icon { width: 32px; height: 32px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 16px; }
 
-        /* SECCIONES INTERNAS */
         .seccion-interna {
             background: white;
             padding: 20px;
@@ -117,24 +113,7 @@
             border: 1px solid var(--gray-200);
             margin-bottom: 20px;
         }
-        .seccion-interna.highlight {
-            background: linear-gradient(135deg, #eef2ff 0%, #f5f3ff 100%);
-            border-color: #c7d2fe;
-        }
-        .seccion-interna.caja {
-            background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%);
-            border-color: #a7f3d0;
-        }
-        .seccion-header { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid var(--gray-200); }
-        .seccion-header h4 { margin: 0; font-size: 15px; font-weight: 700; color: var(--gray-800); }
-        .seccion-icon { width: 34px; height: 34px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 17px; flex-shrink: 0; }
-        .icon-blue { background: #dbeafe; color: #1e40af; }
-        .icon-green { background: #d1fae5; color: #065f46; }
-        .icon-purple { background: #ede9fe; color: #5b21b6; }
-        .icon-orange { background: #fed7aa; color: #9a3412; }
-        .icon-red { background: #fee2e2; color: #991b1b; }
 
-        /* LABELS E INPUTS */
         label { font-size: 12px; font-weight: 600; color: var(--gray-600); display: block; margin-bottom: 6px; letter-spacing: 0.2px; }
         input, select, textarea {
             width: 100%;
@@ -164,7 +143,6 @@
             padding-right: 36px;
         }
 
-        /* BOTONES */
         button {
             font-family: inherit;
             font-size: 14px;
@@ -195,44 +173,9 @@
         .btn-xs { min-height: 28px; padding: 4px 10px; font-size: 11px; border-radius: 6px; }
         .btn-icon { width: 34px; height: 34px; min-height: 34px; padding: 0; border-radius: 8px; }
 
-        /* CEDULA ROW */
         .cedula-row { display: grid; grid-template-columns: 1fr 46px; gap: 6px; }
         .cedula-row button { background: linear-gradient(135deg, var(--warning), var(--warning-dark)); color: white; min-height: 42px; }
 
-        /* SEQUENCE BOXES */
-        .seq-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 8px; }
-        .seq-box {
-            border: 2px solid var(--gray-200);
-            border-radius: var(--radius);
-            padding: 14px;
-            cursor: pointer;
-            text-align: center;
-            transition: all 0.2s ease;
-            background: white;
-            position: relative;
-            overflow: hidden;
-        }
-        .seq-box::before {
-            content: '';
-            position: absolute;
-            top: 0; left: 0; right: 0;
-            height: 4px;
-            background: var(--gray-200);
-            transition: background 0.2s;
-        }
-        .seq-box:hover { border-color: var(--gray-300); transform: translateY(-2px); box-shadow: var(--shadow); }
-        .seq-box.seq-active {
-            border-color: var(--primary);
-            background: linear-gradient(135deg, #eef2ff, #f5f3ff);
-            box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.1);
-        }
-        .seq-box.seq-active::before { background: linear-gradient(90deg, var(--primary), var(--purple)); }
-        .seq-box.seq-inactive { opacity: 0.65; }
-        .seq-num { font-size: 22px; font-weight: 800; color: var(--gray-900); display: block; }
-        .seq-label { font-size: 11px; color: var(--gray-500); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; display: block; margin: 4px 0; }
-        .seq-status { font-size: 11px; font-weight: 700; }
-
-        /* TABLAS */
         .table-wrapper {
             background: white;
             border: 1px solid var(--gray-200);
@@ -265,7 +208,6 @@
         .scroll-talonario input[type=number] { height: 34px; padding: 6px 10px; font-size: 13px; text-align: right; }
         .scroll-talonario .monto-fila { background: linear-gradient(135deg, #ecfdf5, #d1fae5); color: #065f46; font-weight: 700; border: none; }
 
-        /* BANNERS */
         .subtotal-banner {
             display: flex;
             justify-content: flex-end;
@@ -295,7 +237,6 @@
         }
         .total-banner .amount { font-size: 22px; font-weight: 800; color: var(--success-dark); }
 
-        /* ALERT BOXES */
         .alert-box {
             padding: 14px 18px;
             border-radius: var(--radius);
@@ -306,10 +247,7 @@
             margin-bottom: 16px;
         }
         .alert-info { background: linear-gradient(135deg, #e0f2fe, #bae6fd); border-left: 4px solid var(--info); color: #075985; }
-        .alert-warning { background: linear-gradient(135deg, #fef3c7, #fde68a); border-left: 4px solid var(--warning); color: #92400e; }
-        .alert-danger { background: linear-gradient(135deg, #fee2e2, #fecaca); border-left: 4px solid var(--danger); color: #991b1b; }
 
-        /* FIRMA */
         #firmaCanvas {
             border: 2px dashed var(--gray-300);
             border-radius: var(--radius);
@@ -322,7 +260,6 @@
         }
         #firmaCanvas:hover { border-color: var(--primary); }
 
-        /* PANEL LATERAL */
         .panel-lateral {
             display: flex;
             flex-direction: column;
@@ -379,7 +316,6 @@
         .scroll-lista th { font-size: 10px; padding: 10px; }
         .scroll-lista td { padding: 8px 10px; }
 
-        /* GRID DE CAMPOS */
         .field-row { display: grid; gap: 12px; }
         .field-row.cols-2 { grid-template-columns: 1fr 1fr; }
         .field-row.cols-3 { grid-template-columns: repeat(3, 1fr); }
@@ -395,7 +331,6 @@
             content: ''; flex: 1; height: 1px; background: var(--gray-200);
         }
 
-        /* BADGES */
         .badge {
             display: inline-flex; align-items: center; gap: 4px;
             padding: 3px 10px;
@@ -407,16 +342,10 @@
         }
         .badge-blue { background: #dbeafe; color: #1e40af; }
         .badge-green { background: #d1fae5; color: #065f46; }
-        .badge-orange { background: #fed7aa; color: #9a3412; }
-        .badge-gray { background: var(--gray-100); color: var(--gray-600); }
 
-        .chip { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; background: var(--gray-100); border-radius: 6px; font-size: 11px; font-weight: 600; color: var(--gray-600); }
-
-        /* LOGOUT BTN */
         .btn-logout { background: rgba(255,255,255,0.2); color: white; border: 1px solid rgba(255,255,255,0.3); padding: 8px 16px; border-radius: 10px; font-size: 13px; font-weight: 600; min-height: auto; }
         .btn-logout:hover { background: rgba(255,255,255,0.3); }
 
-        /* BANNER EDICION */
         .banner-edit {
             background: linear-gradient(135deg, #fef3c7 0%, #fed7aa 100%);
             border: 2px solid var(--warning);
@@ -439,28 +368,9 @@
         .banner-edit .title { font-weight: 800; color: #92400e; font-size: 15px; }
         .banner-edit .desc { font-size: 13px; color: #78350f; margin-top: 2px; }
 
-        /* EMPTY STATE */
         .empty-state { text-align: center; padding: 30px 20px; color: var(--gray-400); font-size: 13px; }
         .empty-state .icon { font-size: 36px; margin-bottom: 8px; display: block; opacity: 0.5; }
 
-        /* MODAL */
-        .modal { display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(4px); z-index: 10000; padding: 20px; overflow-y: auto; }
-        .modal.show { display: block; }
-        .modal-box {
-            background: white;
-            max-width: 900px;
-            margin: 20px auto;
-            padding: 24px;
-            border-radius: var(--radius-lg);
-            box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5);
-            animation: modalIn 0.2s ease-out;
-        }
-        @keyframes modalIn {
-            from { opacity: 0; transform: translateY(10px) scale(0.98); }
-            to { opacity: 1; transform: translateY(0) scale(1); }
-        }
-
-        /* RESPONSIVE */
         @media(max-width: 1024px) {
             .grid-layout { grid-template-columns: 1fr; }
             .panel-lateral { position: static; }
@@ -471,12 +381,9 @@
             .card, .panel-card { padding: 16px; }
             .seccion-interna { padding: 14px; }
             .field-row.cols-3, .field-row.cols-4, .field-row.input-inline { grid-template-columns: 1fr 1fr; }
-            .seq-grid { grid-template-columns: 1fr; }
             .app-title { font-size: 16px; }
         }
-        .grid-full { grid-column: 1 / -1; }
 
-        /* scrollbar */
         ::-webkit-scrollbar { width: 8px; height: 8px; }
         ::-webkit-scrollbar-track { background: var(--gray-100); border-radius: 4px; }
         ::-webkit-scrollbar-thumb { background: var(--gray-300); border-radius: 4px; }
@@ -569,23 +476,7 @@
                         </div>
                         <div>
                             <label># Número de Factura</label>
-                            <input type="text" id="numFacturaCliente" style="border-color: var(--primary); font-weight: 700; background: var(--primary-light);">
-                        </div>
-                    </div>
-
-                    <div style="margin-top:18px;">
-                        <label>🔀 Seleccionar Secuencia Activa</label>
-                        <div class="seq-grid">
-                            <div id="seq-default-box" class="seq-box seq-active" onclick="cambiarSecuencia('default')">
-                                <span class="seq-num" id="num-default">...</span>
-                                <span class="seq-label">Base Automática</span>
-                                <span class="seq-status">🔵 Activo</span>
-                            </div>
-                            <div id="seq-secundaria-box" class="seq-box seq-inactive" onclick="cambiarSecuencia('secundaria')">
-                                <span class="seq-num" id="num-secundaria">...</span>
-                                <span class="seq-label">Secuencia 1144</span>
-                                <span class="seq-status">⚪ Inactivo</span>
-                            </div>
+                            <input type="text" id="numFacturaCliente" readonly style="border-color: var(--primary); font-weight: 700; background: var(--primary-light);">
                         </div>
                     </div>
 
@@ -876,8 +767,6 @@
         let totalAcumuladoComprasDia = 0;
         let sucursalActual = "Desconocida";
 
-        let secuenciaActiva = '';
-        const ID_SECUNDARIA = '1144';
         let temporizadorFirestore = null;
 
         let modoEdicionCierre = false;
@@ -970,8 +859,7 @@
                 await cargarInventario();
                 await calcularDeudaTotal();
                 await cargarUltimoCierre();
-                await cargarNumerosSecuencias();
-                await cambiarSecuencia('default');
+                await obtenerSiguienteNumeroFacturaActual();
 
                 actualizarTablaGeneralDia();
                 actualizarTablaGastos();
@@ -1068,35 +956,11 @@
         };
 
         // =====================================================
-        // SECUENCIAS / ULTIMO CIERRE
+        // NUMERO DE FACTURA / ULTIMO CIERRE
         // =====================================================
-        async function cargarNumerosSecuencias() {
-            try {
-                const snapBase = await getDoc(doc(db, "contadores_facturas", sucursalActual));
-                document.getElementById('num-default').innerText = snapBase.exists() ? (snapBase.data().ultimo_numero || 0) + 1 : 1;
-                const snapSec = await getDoc(doc(db, "contadores_facturas", `${sucursalActual}_${ID_SECUNDARIA}`));
-                document.getElementById('num-secundaria').innerText = snapSec.exists() ? (snapSec.data().ultimo_numero || 0) + 1 : 1;
-            } catch (error) { console.error(error); }
-        }
-
-        window.cambiarSecuencia = async function(tipo) {
-            secuenciaActiva = (tipo === 'default') ? '' : ID_SECUNDARIA;
-            const boxDefault = document.getElementById('seq-default-box');
-            const boxSec = document.getElementById('seq-secundaria-box');
-            if (secuenciaActiva === '') {
-                boxDefault.className = 'seq-box seq-active'; boxDefault.querySelector('.seq-status').innerText = '🔵 Activo';
-                boxSec.className = 'seq-box seq-inactive'; boxSec.querySelector('.seq-status').innerText = '⚪ Inactivo';
-            } else {
-                boxSec.className = 'seq-box seq-active'; boxSec.querySelector('.seq-status').innerText = '🔵 Activo';
-                boxDefault.className = 'seq-box seq-inactive'; boxDefault.querySelector('.seq-status').innerText = '⚪ Inactivo';
-            }
-            await obtenerSiguienteNumeroFacturaActual();
-        };
-
         async function obtenerSiguienteNumeroFacturaActual() {
             try {
-                const idContador = secuenciaActiva ? `${sucursalActual}_${secuenciaActiva}` : sucursalActual;
-                const snap = await getDoc(doc(db, "contadores_facturas", idContador));
+                const snap = await getDoc(doc(db, "contadores_facturas", sucursalActual));
                 document.getElementById('numFacturaCliente').value = snap.exists() ? (snap.data().ultimo_numero || 0) + 1 : 1;
             } catch (error) { console.error(error); }
         }
@@ -1359,8 +1223,7 @@
             try {
                 await setDoc(doc(db, "clientes", cedulaLimpia), { nombre: nombre, ultima_actualizacion: serverTimestamp() }, { merge: true });
 
-                const idContador = secuenciaActiva ? `${sucursalActual}_${secuenciaActiva}` : sucursalActual;
-                const docRefCont = doc(db, "contadores_facturas", idContador);
+                const docRefCont = doc(db, "contadores_facturas", sucursalActual);
                 const docSnap = await getDoc(docRefCont);
                 let ultimoNum = docSnap.exists() ? (docSnap.data().ultimo_numero || 0) : 0;
                 if (numFacturaInt > ultimoNum) await setDoc(docRefCont, { ultimo_numero: numFacturaInt }, { merge: true });
@@ -1368,7 +1231,7 @@
                 let totalFactura = materialesIngresados.reduce((sum, item) => sum + item.total_pago, 0);
 
                 const facturaObj = {
-                    num_factura: numFactura, serie: secuenciaActiva, cedula: cedulaLimpia, nombre: nombre,
+                    num_factura: numFactura, cedula: cedulaLimpia, nombre: nombre,
                     detalles_materiales: materialesIngresados, total_factura: totalFactura, firma: firmaData,
                     sucursal: sucursalActual, fecha: fecha, uid_trabajador: uidTrabajador, timestamp: serverTimestamp()
                 };
@@ -1377,7 +1240,7 @@
                 await actualizarInventarioFirestore(deltaDesdeDetalles(materialesIngresados, +1));
 
                 facturasDelDia.push({
-                    num_factura: numFactura, serie: secuenciaActiva, cedula: cedulaLimpia, nombre,
+                    num_factura: numFactura, cedula: cedulaLimpia, nombre,
                     detalles_materiales: materialesIngresados, total_factura: totalFactura, firma: firmaData,
                     _docId: docRefNew.id
                 });
@@ -1385,11 +1248,10 @@
 
                 actualizarTablaGeneralDia();
                 limpiarFormularioFactura();
-                await cargarNumerosSecuencias();
                 await obtenerSiguienteNumeroFacturaActual();
                 document.getElementById('cedulaCliente').focus();
 
-                alert(`✅ Factura #${numFactura}${secuenciaActiva ? ' ('+secuenciaActiva+')' : ''} guardada.`);
+                alert(`✅ Factura #${numFactura} guardada.`);
             } catch (error) {
                 console.error(error);
                 alert("❌ Error: " + error.message);
@@ -1544,7 +1406,7 @@
                     let resumenMats = fact.detalles_materiales.map(m => `${m.material} (${m.kilos}kg)`).join(', ');
                     tbody.innerHTML += `
                         <tr>
-                            <td><span class="badge badge-blue">#${fact.num_factura}</span> ${fact.serie ? '<span class="chip">'+fact.serie+'</span>' : ''}</td>
+                            <td><span class="badge badge-blue">#${fact.num_factura}</span></td>
                             <td><b>${fact.nombre}</b><br><small style="color:var(--gray-500);">${fact.cedula}</small></td>
                             <td style="max-width: 250px; font-size:11px; color:var(--gray-600);">${resumenMats}</td>
                             <td style="text-align:right; font-weight:700; color:var(--primary);">₡${montoFactura.toLocaleString('es-CR')}</td>
@@ -1621,7 +1483,7 @@
                 <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:3px solid #2b6cb0; padding-bottom:12px; margin-bottom:20px;">
                     <div>${lineasSuc}</div>
                     <div style="text-align:right;">
-                        <h2 style="font-size:18px; margin:0;">FACTURA #${fact.num_factura}${fact.serie ? ' ('+fact.serie+')' : ''}</h2>
+                        <h2 style="font-size:18px; margin:0;">FACTURA #${fact.num_factura}</h2>
                         <p style="margin:4px 0 0; font-size:13px;">Fecha: ${fecha}</p>
                         <p style="margin:2px 0 0; font-size:13px;">Vencimiento: ${vencimiento.toLocaleDateString('es-CR')}</p>
                     </div>
@@ -1675,7 +1537,7 @@
             if (datosSuc.telefono) header += pad('Tel: ' + norm(datosSuc.telefono), A) + '\n';
             if (datosSuc.correo) header += pad('Email: ' + norm(datosSuc.correo), A) + '\n';
             header += LINEA;
-            const titulo = 'FACTURA #' + fact.num_factura + (fact.serie ? ' (' + fact.serie + ')' : '');
+            const titulo = 'FACTURA #' + fact.num_factura;
             let info = '\n' + pad(norm(titulo), A, 'center') + '\n' + pad('Fecha: ' + norm(fecha), A) + '\n\n';
             info += pad('Cliente: ' + norm(fact.nombre), A) + '\n' + pad('Cedula:  ' + norm(fact.cedula), A) + '\n' + LINEA_D;
             let cab = pad('MATERIAL', 16) + pad('KG', 6, 'right') + pad('CRC/KG', 9, 'right') + pad('TOTAL', 11, 'right') + '\n' + LINEA_D;
@@ -1732,7 +1594,7 @@
                 html2canvas(tempDiv, { scale: 2, useCORS: true, logging: false, backgroundColor: '#ffffff' })
                 .then(canvas => {
                     const link = document.createElement('a');
-                    link.download = `Factura_${fact.num_factura}${fact.serie ? '_'+fact.serie : ''}.png`;
+                    link.download = `Factura_${fact.num_factura}.png`;
                     link.href = canvas.toDataURL('image/png');
                     link.click();
                     document.body.removeChild(tempDiv);
