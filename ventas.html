@@ -46,7 +46,6 @@
             line-height: 1.5;
         }
 
-        /* LOGIN */
         .login-wrap { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; }
         .login-box {
             background: white; padding: 40px 32px; max-width: 420px; width: 100%;
@@ -71,7 +70,6 @@
 
         .app-container { max-width: 1440px; margin: 0 auto; padding: 20px; }
 
-        /* HEADER */
         .app-header {
             background: linear-gradient(135deg, #10b981 0%, #0891b2 50%, #4f46e5 100%);
             border-radius: 20px; padding: 24px 28px; margin-bottom: 20px;
@@ -105,7 +103,6 @@
         }
         .btn-header:hover { background: rgba(255,255,255,0.3); transform: translateY(-1px); }
 
-        /* STATS */
         .stats-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -136,7 +133,6 @@
         .stat-value small { font-size: 14px; color: var(--gray-500); font-weight: 600; }
         .stat-extra { font-size: 12px; color: var(--gray-500); }
 
-        /* CARDS */
         .card {
             background: white; padding: 22px; border-radius: var(--radius);
             box-shadow: var(--shadow); border: 1px solid var(--gray-200);
@@ -159,7 +155,6 @@
         .icon-orange { background: #fed7aa; color: #9a3412; }
         .icon-red { background: #fee2e2; color: #991b1b; }
 
-        /* LABELS E INPUTS */
         label {
             font-size: 12px; font-weight: 600; color: var(--gray-600);
             display: block; margin-bottom: 6px; letter-spacing: 0.2px;
@@ -183,7 +178,6 @@
         }
         textarea { min-height: 70px; resize: vertical; padding: 10px 14px; height: auto; }
 
-        /* BOTONES */
         button {
             font-family: inherit; font-size: 14px; font-weight: 600;
             border-radius: var(--radius-sm); cursor: pointer;
@@ -203,14 +197,12 @@
         .btn-sm { min-height: 34px; padding: 6px 12px; font-size: 12px; }
         .btn-xs { min-height: 30px; padding: 4px 10px; font-size: 11px; border-radius: 6px; }
 
-        /* FIELD ROWS */
         .field-row { display: grid; gap: 12px; }
         .field-row.cols-2 { grid-template-columns: 1fr 1fr; }
         .field-row.cols-3 { grid-template-columns: repeat(3, 1fr); }
         .field-row.cols-4 { grid-template-columns: 1fr 1fr 1fr 1fr; }
         .grid-full { grid-column: 1 / -1; }
 
-        /* LINEAS DE VENTA */
         .linea-venta {
             display: grid;
             grid-template-columns: 2fr 1fr 1fr 1fr 40px;
@@ -234,12 +226,12 @@
         .linea-venta .stock-info.ok { color: var(--success-dark); }
         .linea-venta .stock-info.bajo { color: var(--warning-dark); }
         .linea-venta .stock-info.sin { color: var(--danger-dark); }
+        .linea-venta .stock-info.excedido { color: var(--danger-dark); background: #fee2e2; border-radius: 6px; padding: 4px; font-weight: 800; }
         .linea-venta .total-linea {
             text-align: right; font-weight: 700; font-size: 13px;
             color: var(--primary); padding-right: 6px;
         }
 
-        /* TABLAS */
         .table-wrapper {
             background: white; border: 1px solid var(--gray-200);
             border-radius: var(--radius); overflow: hidden;
@@ -268,8 +260,8 @@
         .badge-green { background: #d1fae5; color: #065f46; }
         .badge-orange { background: #fed7aa; color: #9a3412; }
         .badge-purple { background: #ede9fe; color: #5b21b6; }
+        .badge-red { background: #fee2e2; color: #991b1b; }
 
-        /* TOTAL BANNER */
         .total-banner {
             display: flex; justify-content: flex-end; align-items: center;
             gap: 12px; padding: 16px 22px;
@@ -279,14 +271,12 @@
         }
         .total-banner .amount { font-size: 24px; font-weight: 800; color: var(--success-dark); }
 
-        /* EMPTY */
         .empty-state {
             text-align: center; padding: 40px 20px;
             color: var(--gray-400); font-size: 13px;
         }
         .empty-state .icon { font-size: 42px; display: block; margin-bottom: 10px; opacity: 0.5; }
 
-        /* ALERT */
         .alert {
             padding: 14px 18px; border-radius: var(--radius);
             font-size: 13px; display: flex; align-items: center;
@@ -296,7 +286,103 @@
         .alert-warning { background: linear-gradient(135deg, #fef3c7, #fde68a); border-left: 4px solid var(--warning); color: #92400e; }
         .alert-danger { background: linear-gradient(135deg, #fee2e2, #fecaca); border-left: 4px solid var(--danger); color: #991b1b; }
 
-        /* RESPONSIVE */
+        /* MODAL DE ADVERTENCIA */
+        .modal-advertencia {
+            display: none;
+            position: fixed; inset: 0;
+            background: rgba(15, 23, 42, 0.7);
+            backdrop-filter: blur(4px);
+            z-index: 10000;
+            padding: 20px;
+            align-items: center;
+            justify-content: center;
+            overflow-y: auto;
+        }
+        .modal-advertencia.show { display: flex; }
+        .modal-advertencia-box {
+            background: white;
+            max-width: 560px;
+            width: 100%;
+            padding: 28px;
+            border-radius: 20px;
+            box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5);
+            animation: modalIn 0.2s ease-out;
+            border-top: 6px solid var(--warning);
+        }
+        @keyframes modalIn {
+            from { opacity: 0; transform: translateY(10px) scale(0.98); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        .modal-advertencia-icon {
+            width: 70px; height: 70px;
+            border-radius: 20px;
+            background: linear-gradient(135deg, #fef3c7, #fde68a);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 38px; margin: 0 auto 16px;
+        }
+        .modal-advertencia h3 {
+            text-align: center;
+            font-size: 20px;
+            font-weight: 800;
+            color: var(--gray-900);
+            margin: 0 0 8px;
+        }
+        .modal-advertencia .desc {
+            text-align: center;
+            font-size: 14px;
+            color: var(--gray-600);
+            margin-bottom: 20px;
+        }
+        .lista-conflictos {
+            background: linear-gradient(135deg, #fef2f2, #fee2e2);
+            border: 1px solid #fecaca;
+            border-radius: var(--radius-sm);
+            padding: 14px 16px;
+            margin-bottom: 20px;
+            max-height: 280px;
+            overflow-y: auto;
+        }
+        .conflicto-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 0;
+            border-bottom: 1px dashed #fecaca;
+        }
+        .conflicto-item:last-child { border-bottom: none; }
+        .conflicto-item .mat {
+            font-weight: 700;
+            color: var(--gray-800);
+            font-size: 13px;
+        }
+        .conflicto-item .det {
+            font-size: 12px;
+            color: var(--gray-600);
+            display: flex;
+            gap: 12px;
+        }
+        .conflicto-item .det .stock { color: #065f46; font-weight: 700; }
+        .conflicto-item .det .vender { color: #991b1b; font-weight: 700; }
+        .conflicto-item .det .falta { color: #991b1b; font-weight: 800; background: #fee2e2; padding: 2px 8px; border-radius: 6px; }
+        .modal-advertencia-botones {
+            display: flex;
+            gap: 10px;
+        }
+        .modal-advertencia-botones button {
+            flex: 1;
+            height: 48px;
+            font-size: 14px;
+        }
+        .modal-advertencia-nota {
+            margin-top: 16px;
+            font-size: 12px;
+            color: var(--gray-500);
+            text-align: center;
+            padding: 10px;
+            background: var(--gray-50);
+            border-radius: 8px;
+        }
+
         @media(max-width: 900px) {
             .linea-venta { grid-template-columns: 1fr 1fr; gap: 6px; }
             .linea-venta .stock-info { grid-column: 1 / -1; }
@@ -308,7 +394,6 @@
             .stat-value { font-size: 22px; }
         }
 
-        /* SCROLLBAR */
         ::-webkit-scrollbar { width: 8px; height: 8px; }
         ::-webkit-scrollbar-track { background: var(--gray-100); border-radius: 4px; }
         ::-webkit-scrollbar-thumb { background: var(--gray-300); border-radius: 4px; }
@@ -461,6 +546,23 @@
 
     </div>
 
+    <!-- MODAL ADVERTENCIA STOCK EXCEDIDO -->
+    <div id="modalAdvertenciaStock" class="modal-advertencia">
+        <div class="modal-advertencia-box">
+            <div class="modal-advertencia-icon">⚠️</div>
+            <h3>Stock insuficiente</h3>
+            <div class="desc">Estás vendiendo más de lo que hay en inventario. Revisa el detalle:</div>
+            <div class="lista-conflictos" id="listaConflictos"></div>
+            <div class="modal-advertencia-botones">
+                <button class="btn-ghost" onclick="cerrarModalAdvertencia()">❌ Cancelar</button>
+                <button class="btn-warning" onclick="confirmarVentaConExceso()">✅ Sí, vender igual</button>
+            </div>
+            <div class="modal-advertencia-nota">
+                💡 El inventario quedará en negativo para esos materiales. Puedes ajustarlo luego con <b>Recalcular Inventario</b>.
+            </div>
+        </div>
+    </div>
+
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
@@ -499,7 +601,8 @@
         let inventarioSucursal = {};
         let lineasVenta = [];
         let ventasCache = [];
-        let preciosVenta = {}; // precios de venta guardados por material
+        let preciosVenta = {};
+        let conflictosPendientes = []; // Para guardar temporalmente los conflictos si el usuario confirma
 
         // =====================================================
         // AUTENTICACIÓN
@@ -516,13 +619,11 @@
                 document.getElementById('modulo-principal').style.display = 'block';
                 document.getElementById('sucursal-txt').innerText = sucursalUsuario;
 
-                // Sucursal por defecto: la del usuario
                 if (sucursalUsuario !== "Desconocida") {
                     document.getElementById('sucursalVenta').value = sucursalUsuario;
                     sucursalVentaActual = sucursalUsuario;
                 }
 
-                // Fecha por defecto: hoy
                 document.getElementById('fechaVenta').value = new Date().toISOString().split('T')[0];
 
                 await cargarInventarioSucursal();
@@ -551,10 +652,7 @@
             try {
                 const snap = await getDoc(doc(db, "inventario", sucursalVentaActual));
                 inventarioSucursal = snap.exists() ? (snap.data().materiales || {}) : {};
-            } catch (e) {
-                console.error("Error cargando inventario:", e);
-                inventarioSucursal = {};
-            }
+            } catch (e) { inventarioSucursal = {}; }
         }
 
         async function cargarPreciosVenta() {
@@ -578,11 +676,8 @@
             await cargarPreciosVenta();
             await cargarNumeroVenta();
             await cargarHistorialVentas();
-            // Re-renderizar líneas con el stock actualizado
-            lineasVenta.forEach((l, i) => {
-                if (l.material) {
-                    l.precio = preciosVenta[l.material] || l.precio || 0;
-                }
+            lineasVenta.forEach((l) => {
+                if (l.material) l.precio = preciosVenta[l.material] || l.precio || 0;
             });
             renderizarLineasVenta();
             actualizarStats();
@@ -613,8 +708,24 @@
             cont.innerHTML = '';
             lineasVenta.forEach((lin, i) => {
                 const stockDisponible = parseFloat(inventarioSucursal[lin.material]) || 0;
-                const stockClase = stockDisponible <= 0 ? 'sin' : (stockDisponible < 50 ? 'bajo' : 'ok');
-                const stockTexto = stockDisponible <= 0 ? '❌ Sin stock' : `📦 Disponible: ${stockDisponible.toFixed(2)} kg`;
+                const kilosIngresados = parseFloat(lin.kilos) || 0;
+                const excede = kilosIngresados > stockDisponible;
+
+                let stockClase, stockTexto;
+                if (excede) {
+                    stockClase = 'excedido';
+                    stockTexto = `⚠️ Solo hay ${stockDisponible.toFixed(2)} kg (vendes ${kilosIngresados.toFixed(2)})`;
+                } else if (stockDisponible <= 0) {
+                    stockClase = 'sin';
+                    stockTexto = `❌ Sin stock (0 kg)`;
+                } else if (stockDisponible < 50) {
+                    stockClase = 'bajo';
+                    stockTexto = `📦 Disponible: ${stockDisponible.toFixed(2)} kg (bajo)`;
+                } else {
+                    stockClase = 'ok';
+                    stockTexto = `📦 Disponible: ${stockDisponible.toFixed(2)} kg`;
+                }
+
                 const opciones = listaMaterialesBase.map(m => `<option value="${m}" ${m === lin.material ? 'selected' : ''}>${m}</option>`).join('');
 
                 cont.innerHTML += `
@@ -643,12 +754,33 @@
             if (campo === 'kilos') lineasVenta[i].kilos = num;
             else if (campo === 'precio') lineasVenta[i].precio = num;
             lineasVenta[i].total = (lineasVenta[i].kilos || 0) * (lineasVenta[i].precio || 0);
-            // Actualizar solo el total de la línea sin re-renderizar todo
+
+            // Actualizar solo el total de la línea
             const cont = document.getElementById('lineasVenta');
             const lineas = cont.querySelectorAll('.linea-venta');
             if (lineas[i]) {
                 const totalEl = lineas[i].querySelector('.total-linea');
                 if (totalEl) totalEl.innerText = '₡' + lineasVenta[i].total.toLocaleString('es-CR');
+
+                // Actualizar SOLO el aviso de stock de esa línea
+                const stockEl = lineas[i].querySelector('.stock-info');
+                const stockDisponible = parseFloat(inventarioSucursal[lineasVenta[i].material]) || 0;
+                const excede = lineasVenta[i].kilos > stockDisponible;
+                let stockClase, stockTexto;
+                if (excede) {
+                    stockClase = 'excedido';
+                    stockTexto = `⚠️ Solo hay ${stockDisponible.toFixed(2)} kg (vendes ${lineasVenta[i].kilos.toFixed(2)})`;
+                } else if (stockDisponible <= 0) {
+                    stockClase = 'sin';
+                    stockTexto = `❌ Sin stock (0 kg)`;
+                } else if (stockDisponible < 50) {
+                    stockClase = 'bajo';
+                    stockTexto = `📦 Disponible: ${stockDisponible.toFixed(2)} kg (bajo)`;
+                } else {
+                    stockClase = 'ok';
+                    stockTexto = `📦 Disponible: ${stockDisponible.toFixed(2)} kg`;
+                }
+                if (stockEl) { stockEl.className = 'stock-info ' + stockClase; stockEl.innerText = stockTexto; }
             }
             actualizarTotalVenta();
         };
@@ -659,7 +791,7 @@
         }
 
         // =====================================================
-        // GUARDAR VENTA
+        // GUARDAR VENTA (con advertencia si excede stock)
         // =====================================================
         window.guardarVenta = async function() {
             const nombre = document.getElementById('compradorNombre').value.trim();
@@ -667,7 +799,6 @@
             const telefono = document.getElementById('compradorTelefono').value.trim();
             const fecha = document.getElementById('fechaVenta').value;
             const observaciones = document.getElementById('observacionesVenta').value.trim();
-            const numVenta = document.getElementById('numVenta').value;
 
             if (!nombre) { alert("⚠️ Ingrese el nombre del comprador."); return; }
             if (!fecha) { alert("⚠️ Seleccione la fecha de venta."); return; }
@@ -675,24 +806,74 @@
             const detalles = lineasVenta.filter(l => l.kilos > 0 && l.material);
             if (detalles.length === 0) { alert("⚠️ Agregue al menos un material con kilos."); return; }
 
-            // VALIDAR STOCK
-            for (const d of detalles) {
+            // Detectar conflictos de stock
+            const conflictos = [];
+            detalles.forEach(d => {
                 const stock = parseFloat(inventarioSucursal[d.material]) || 0;
                 if (d.kilos > stock) {
-                    alert(`❌ Stock insuficiente de "${d.material}".\n\nDisponible: ${stock.toFixed(2)} kg\nIntentas vender: ${d.kilos.toFixed(2)} kg`);
-                    return;
+                    conflictos.push({
+                        material: d.material,
+                        stock: stock,
+                        vender: d.kilos,
+                        falta: d.kilos - stock
+                    });
                 }
+            });
+
+            // Si hay conflictos, mostrar modal de advertencia
+            if (conflictos.length > 0) {
+                conflictosPendientes = conflictos;
+                mostrarModalAdvertencia(conflictos);
+                return;
             }
 
+            // Sin conflictos → guardar directo
+            await ejecutarGuardadoVenta(detalles);
+        };
+
+        function mostrarModalAdvertencia(conflictos) {
+            const cont = document.getElementById('listaConflictos');
+            cont.innerHTML = conflictos.map(c => `
+                <div class="conflicto-item">
+                    <div>
+                        <div class="mat">${c.material}</div>
+                        <div class="det">
+                            <span class="stock">📦 Stock: ${c.stock.toFixed(2)} kg</span>
+                            <span class="vender">🛒 Vendes: ${c.vender.toFixed(2)} kg</span>
+                        </div>
+                    </div>
+                    <span class="falta">Falta: ${c.falta.toFixed(2)} kg</span>
+                </div>
+            `).join('');
+            document.getElementById('modalAdvertenciaStock').classList.add('show');
+        }
+
+        window.cerrarModalAdvertencia = function() {
+            document.getElementById('modalAdvertenciaStock').classList.remove('show');
+            conflictosPendientes = [];
+        };
+
+        window.confirmarVentaConExceso = async function() {
+            document.getElementById('modalAdvertenciaStock').classList.remove('show');
+            const detalles = lineasVenta.filter(l => l.kilos > 0 && l.material);
+            conflictosPendientes = [];
+            await ejecutarGuardadoVenta(detalles);
+        };
+
+        async function ejecutarGuardadoVenta(detalles) {
+            const nombre = document.getElementById('compradorNombre').value.trim();
+            const cedula = document.getElementById('compradorCedula').value.trim();
+            const telefono = document.getElementById('compradorTelefono').value.trim();
+            const fecha = document.getElementById('fechaVenta').value;
+            const observaciones = document.getElementById('observacionesVenta').value.trim();
+            const numVenta = document.getElementById('numVenta').value;
             const totalVenta = detalles.reduce((s, l) => s + l.total, 0);
 
-            if (!confirm(`¿Confirmar la venta?\n\nComprador: ${nombre}\nMateriales: ${detalles.length}\nTotal: ₡${totalVenta.toLocaleString('es-CR')}\n\nSe descontará del inventario de ${sucursalVentaActual}.`)) return;
-
-            const btn = event.target;
-            btn.disabled = true; btn.innerText = "⏳ Guardando...";
+            const btn = document.querySelector('button[onclick="guardarVenta()"]');
+            if (btn) { btn.disabled = true; btn.innerText = "⏳ Guardando..."; }
 
             try {
-                // 1. Restar del inventario
+                // 1. Restar del inventario (puede quedar negativo)
                 const nuevoInv = { ...inventarioSucursal };
                 detalles.forEach(d => {
                     nuevoInv[d.material] = (nuevoInv[d.material] || 0) - d.kilos;
@@ -704,7 +885,7 @@
                     ultima_actualizacion: serverTimestamp()
                 }, { merge: true });
 
-                // 2. Actualizar contador de ventas
+                // 2. Actualizar contador
                 const numVentaInt = parseInt(numVenta);
                 await setDoc(doc(db, "contadores_ventas", sucursalVentaActual), {
                     ultimo_numero: numVentaInt
@@ -731,9 +912,8 @@
 
                 // 4. Refrescar
                 inventarioSucursal = nuevoInv;
-                alert(`✅ Venta #${numVenta} registrada.\n\nTotal: ₡${totalVenta.toLocaleString('es-CR')}\nInventario actualizado.`);
+                alert(`✅ Venta #${numVenta} registrada.\n\nTotal: ₡${totalVenta.toLocaleString('es-CR')}`);
 
-                // Limpiar formulario
                 document.getElementById('compradorNombre').value = '';
                 document.getElementById('compradorCedula').value = '';
                 document.getElementById('compradorTelefono').value = '';
@@ -747,9 +927,9 @@
                 console.error(e);
                 alert("❌ Error al guardar la venta: " + e.message);
             } finally {
-                btn.disabled = false; btn.innerText = "💾 GUARDAR VENTA Y DESCONTAR DEL INVENTARIO";
+                if (btn) { btn.disabled = false; btn.innerText = "💾 GUARDAR VENTA Y DESCONTAR DEL INVENTARIO"; }
             }
-        };
+        }
 
         // =====================================================
         // HISTORIAL DE VENTAS
@@ -801,7 +981,7 @@
             }
 
             let html = '';
-            ventas.forEach((v, i) => {
+            ventas.forEach((v) => {
                 const detalles = (v.detalles_materiales || []).map(m => `${m.material} (${m.kilos}kg)`).join(', ');
                 const fechaFmt = v.fecha ? v.fecha.split('-').reverse().join('/') : '-';
                 const cedulaTxt = v.comprador?.cedula ? `<br><small style="color:var(--gray-500);">${v.comprador.cedula}</small>` : '';
@@ -825,7 +1005,7 @@
 
         function actualizarStats() {
             const hoy = new Date().toISOString().split('T')[0];
-            const mesActual = hoy.substring(0, 7); // YYYY-MM
+            const mesActual = hoy.substring(0, 7);
 
             let ventasHoy = 0, cantHoy = 0, kgHoy = 0;
             let ventasMes = 0, cantMes = 0, kgMes = 0;
@@ -879,7 +1059,6 @@
             if (!confirm(`⚠️ ¿Eliminar la venta #${v.num_venta}?\n\nLos materiales volverán al inventario de ${v.sucursal}.\n\nEsta acción no se puede deshacer.`)) return;
 
             try {
-                // 1. Devolver al inventario
                 const snapInv = await getDoc(doc(db, "inventario", v.sucursal));
                 const inv = snapInv.exists() ? (snapInv.data().materiales || {}) : {};
                 (v.detalles_materiales || []).forEach(m => {
@@ -891,7 +1070,6 @@
                     ultima_actualizacion: serverTimestamp()
                 }, { merge: true });
 
-                // 2. Eliminar el documento de la venta
                 await deleteDoc(doc(db, "ventas_material", docId));
 
                 alert("✅ Venta eliminada. Materiales devueltos al inventario.");
@@ -962,10 +1140,6 @@
             } else alert('Permita ventanas emergentes.');
         };
 
-        // =====================================================
-        // INICIO
-        // =====================================================
-        // Cargar fecha por defecto si no hay usuario aún
         document.getElementById('fechaVenta').value = new Date().toISOString().split('T')[0];
     </script>
 </body>
