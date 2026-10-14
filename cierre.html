@@ -477,7 +477,7 @@
                 <div class="card">
                     <div class="field-row cols-2">
                         <div>
-                            <label>📅 Fecha de Operación</label>
+                            <label>📅 Fecha de Operación (puedes cambiarla)</label>
                             <input type="date" id="fecha">
                         </div>
                     </div>
@@ -809,6 +809,15 @@
 
         let inventarioActual = {};
 
+        // Helper: obtener fecha de hoy en formato YYYY-MM-DD (hora local)
+        function obtenerFechaHoy() {
+            const d = new Date();
+            const yyyy = d.getFullYear();
+            const mm = String(d.getMonth() + 1).padStart(2, '0');
+            const dd = String(d.getDate()).padStart(2, '0');
+            return `${yyyy}-${mm}-${dd}`;
+        }
+
         // ---------- FIRMA DIGITAL ----------
         let canvas, ctx, isDrawing = false, lastX = 0, lastY = 0;
 
@@ -931,6 +940,10 @@
                 document.getElementById('sucursal-txt').innerText = sucursalActual;
                 document.getElementById('sucursal-txt2').innerText = sucursalActual;
 
+                // ✅ AUTO-LLENAR FECHA CON LA DEL SISTEMA (editable)
+                document.getElementById('fecha').value = obtenerFechaHoy();
+                document.getElementById('fechaMovimiento').value = obtenerFechaHoy();
+
                 const facturasGuardadas = localStorage.getItem(`facturas_${sucursalActual}`);
                 if (facturasGuardadas) facturasDelDia = JSON.parse(facturasGuardadas);
                 const gastosGuardados = localStorage.getItem(`gastos_${sucursalActual}`);
@@ -1051,7 +1064,6 @@
             } catch (error) { console.error(error); }
         }
 
-        // Recalcula el contador basándose en la factura con el número más alto guardada en Firestore
         async function ajustarContadorFacturas() {
             try {
                 const q = query(
@@ -1347,7 +1359,7 @@
 
             if (materialesIngresados.length === 0) { alert("⚠️ Ingrese al menos un material con kg."); return; }
 
-            const fecha = document.getElementById('fecha').value || new Date().toISOString().split('T')[0];
+            const fecha = document.getElementById('fecha').value || obtenerFechaHoy();
 
             try {
                 await setDoc(doc(db, "clientes", cedulaLimpia), { nombre: nombre, ultima_actualizacion: serverTimestamp() }, { merge: true });
@@ -1563,9 +1575,6 @@
             renderizarTablaAcumuladosDia(acumuladoMateriales);
         }
 
-        // =====================================================
-        // ELIMINAR FACTURA (CON AJUSTE DE CONTADOR)
-        // =====================================================
         window.eliminarFacturaGeneral = async (index) => {
             const f = facturasDelDia[index];
             if (!f) return;
