@@ -868,14 +868,11 @@
         }
 
         function guardarFirma() {
-            // Verificar que el canvas tenga al menos algo dibujado
-            const dataUrl = canvas.toDataURL('image/png');
-            // Comparar con canvas vacío (tamaño mínimo)
             if (canvasEstaVacio()) {
                 alert('⚠️ Debes dibujar la firma antes de guardarla.');
                 return;
             }
-            document.getElementById('firmaDataUrl').value = dataUrl;
+            document.getElementById('firmaDataUrl').value = canvas.toDataURL('image/png');
             actualizarBadgeFirma();
             alert('✅ Firma guardada correctamente.');
         }
@@ -884,7 +881,6 @@
             if (!canvas || !ctx) return true;
             const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
             const data = imageData.data;
-            // Recorrer píxeles: si alguno tiene alpha > 0, hay algo dibujado
             for (let i = 3; i < data.length; i += 4) {
                 if (data[i] !== 0) return false;
             }
@@ -907,19 +903,16 @@
             }
         }
 
-        // Detectar cuando el usuario deja de dibujar para marcar el canvas como "con contenido"
         function detectarTrazo() {
             if (!canvas) return;
             canvas.addEventListener('mouseup', () => {
                 if (!canvasEstaVacio() && !document.getElementById('firmaDataUrl').value) {
-                    const c = document.getElementById('firmaCanvas');
-                    c.style.borderColor = 'var(--success)';
+                    canvas.style.borderColor = 'var(--success)';
                 }
             });
             canvas.addEventListener('touchend', () => {
                 if (!canvasEstaVacio() && !document.getElementById('firmaDataUrl').value) {
-                    const c = document.getElementById('firmaCanvas');
-                    c.style.borderColor = 'var(--success)';
+                    canvas.style.borderColor = 'var(--success)';
                 }
             });
         }
@@ -1058,19 +1051,35 @@
             } catch (error) { console.error(error); }
         }
 
-        // Recalcula el contador basándose en el número más alto de las facturas que quedan
+        // Recalcula el contador basándose en la factura con el número más alto guardada en Firestore
         async function ajustarContadorFacturas() {
             try {
-                const maxRestante = facturasDelDia.reduce((max, fac) => {
+                const q = query(
+                    collection(db, "facturas_compras"),
+                    where("sucursal", "==", sucursalActual)
+                );
+                const snap = await getDocs(q);
+                let maxNum = 0;
+                snap.forEach(d => {
+                    const n = parseInt(d.data().num_factura) || 0;
+                    if (n > maxNum) maxNum = n;
+                });
+                await setDoc(doc(db, "contadores_facturas", sucursalActual), {
+                    ultimo_numero: maxNum
+                }, { merge: true });
+                document.getElementById('numFacturaCliente').value = maxNum + 1;
+            } catch (e) {
+                console.error("Error ajustando contador:", e);
+                const maxLocal = facturasDelDia.reduce((max, fac) => {
                     const n = parseInt(fac.num_factura) || 0;
                     return n > max ? n : max;
                 }, 0);
-                await setDoc(doc(db, "contadores_facturas", sucursalActual), {
-                    ultimo_numero: maxRestante
-                }, { merge: true });
-                document.getElementById('numFacturaCliente').value = maxRestante + 1;
-            } catch (e) {
-                console.error("Error ajustando contador:", e);
+                try {
+                    await setDoc(doc(db, "contadores_facturas", sucursalActual), {
+                        ultimo_numero: maxLocal
+                    }, { merge: true });
+                } catch (_) {}
+                document.getElementById('numFacturaCliente').value = maxLocal + 1;
             }
         }
 
@@ -1314,7 +1323,6 @@
             let numFacturaInt = parseInt(numFactura);
             if (isNaN(numFacturaInt) || numFacturaInt < 1) { alert("⚠️ Número inválido."); return; }
 
-            // ✅ VALIDACIÓN DE FIRMA
             const firmaData = document.getElementById('firmaDataUrl').value || '';
             if (!firmaData) {
                 alert("✍️ Debe capturar la firma del cliente antes de guardar la factura.\n\n1. Pida al cliente que firme en el recuadro.\n2. Presione '✅ Guardar Firma'.\n3. Vuelva a guardar la factura.");
@@ -1556,7 +1564,7 @@
         }
 
         // =====================================================
-        // ELIMINAR FACTURA (CON RETROCESO DE CONTADOR)
+        // ELIMINAR FACTURA (CON AJUSTE DE CONTADOR)
         // =====================================================
         window.eliminarFacturaGeneral = async (index) => {
             const f = facturasDelDia[index];
@@ -1569,14 +1577,13 @@
                 localStorage.setItem(`facturas_${sucursalActual}`, JSON.stringify(facturasDelDia));
                 actualizarTablaGeneralDia();
             } else {
-                if (!confirm(`¿Eliminar definitivamente la factura #${f.num_factura}?\n\nEl número de factura volverá al anterior.`)) return;
+                if (!confirm(`¿Eliminar definitivamente la factura #${f.num_factura}?\n\nSe borrará del sistema y se descontará del inventario.`)) return;
                 try {
                     if (f._docId) await deleteDoc(doc(db, "facturas_compras", f._docId));
                     await actualizarInventarioFirestore(deltaDesdeDetalles(f.detalles_materiales, -1));
                 } catch (e) { alert("Error: " + e.message); return; }
                 facturasDelDia.splice(index, 1);
                 localStorage.setItem(`facturas_${sucursalActual}`, JSON.stringify(facturasDelDia));
-                // ✅ Retroceder contador
                 await ajustarContadorFacturas();
                 actualizarTablaGeneralDia();
             }
@@ -1792,6 +1799,7 @@
                     ultima_modificacion: serverTimestamp(), modificado_por: uidTrabajador
                 }, { merge: true });
 
+                await ajustarContadorFacturas();
                 alert(`✅ Cierre actualizado.\n• Eliminadas: ${eliminadasOk}\n• Total final: ${facturasDelDia.length}`);
                 limpiarEstadoEdicion();
                 location.reload();
