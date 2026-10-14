@@ -5,371 +5,835 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sistema de Facturación y Cierre - Sucursal</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
-        body { font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif; padding: 12px; background: #f0f2f5; margin: 0; color: #333; }
-        .login-box { background: white; padding: 25px; max-width: 400px; margin: 60px auto; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); text-align: center; box-sizing: border-box; }
-        .login-box input { width: 100%; padding: 12px; margin: 10px 0; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-size: 16px; }
-        .grid-layout { display: grid; grid-template-columns: 1fr 340px; gap: 16px; max-width: 1300px; margin: auto; }
-        .card { background: white; padding: 16px; border-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); box-sizing: border-box; }
-        h3, h4, h5 { margin-top: 0; color: #1a73e8; }
-        label { font-size: 12px; font-weight: 600; color: #4a5568; display: block; margin-top: 10px; }
-        input, select { width: 100%; padding: 10px; margin-top: 5px; border: 1px solid #cbd5e1; border-radius: 8px; box-sizing: border-box; font-size: 15px; background-color: #fff; height: 42px; -webkit-appearance: none; appearance: none; }
-        select { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%234a5568'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 10px center; background-size: 16px; padding-right: 30px; }
-        .seccion-interna { background: #f8fafc; padding: 14px; border-radius: 12px; border: 1px solid #e2e8f0; margin-bottom: 16px; box-sizing: border-box; }
-        .cedula-row { display: grid; grid-template-columns: 1fr 50px; gap: 6px; }
-        button { min-height: 42px; font-size: 15px; font-weight: bold; border-radius: 8px; cursor: pointer; transition: background 0.2s; box-sizing: border-box; }
-        .btn-orange { background: #e67e22; color: white; border: none; margin-top: 5px; width: 100%; height: 42px; display: flex; align-items: center; justify-content: center; }
-        .btn-blue { background: #1a73e8; color: white; border: none; padding: 10px 16px; width: 100%; margin-top: 12px; }
-        .btn-del { background: #ff5252; color: white; border: none; border-radius: 6px; padding: 4px 10px; cursor: pointer; min-height: auto; font-size: 12px; }
-        .btn-green { width: 100%; padding: 14px; background: #2e7d32; color: white; border: none; border-radius: 10px; font-size: 16px; margin-top: 16px; }
-        .btn-save-fact { background: #2e7d32; color: white; border: none; padding: 12px; width: 100%; margin-top: 14px; font-size: 15px; }
-        .btn-work { background: #6b46c1; color: white; border: none; padding: 10px; width: 100%; }
-        .table-responsive { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; border: 1px solid #e2e8f0; border-radius: 8px; background: white; margin-top: 10px; }
-        .scroll-talonario { max-height: 380px; overflow-y: auto; border: 1px solid #cbd5e1; border-radius: 8px; background: white; margin-top: 10px; }
-        table { width: 100%; border-collapse: collapse; font-size: 13px; min-width: 450px; }
-        th { text-align: left; background: #f1f5f9; padding: 10px; font-weight: 600; color: #475569; position: sticky; top: 0; z-index: 1; }
-        td { padding: 8px 10px; border-bottom: 1px solid #f1f5f9; vertical-align: middle; }
-        .subtotal-banner { text-align: right; font-weight: bold; padding: 10px; color: #1a73e8; font-size: 14px; background: #e8f0fe; border-radius: 8px; margin-top: 10px; }
-        .total-banner { text-align: right; font-weight: bold; padding: 12px; color: #2e7d32; font-size: 16px; background: #e8f5e9; border-radius: 8px; margin-top: 10px; }
-        .mini-deuda-box { background: #fff5f5; border: 1px solid #feb2b2; padding: 6px 12px; border-radius: 8px; font-size: 13px; color: #c53030; font-weight: bold; text-align: center; margin-bottom: 15px; }
-        .panel-lateral { background: white; padding: 16px; border-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); height: max-content; box-sizing: border-box; }
-        .scroll-precios { max-height: 300px; overflow-y: auto; margin-bottom: 12px; border-radius: 8px; }
-        .box-ultimo-cierre { background: #edf2f7; border-left: 4px solid #3182ce; padding: 10px 14px; border-radius: 6px; margin-bottom: 15px; font-size: 13px; color: #2d3748; }
-        .btn-print { background: #2b6cb0; color: white; border: none; border-radius: 4px; padding: 4px 8px; cursor: pointer; font-size: 11px; }
-        .btn-print-a4 { background: #553c9a; color: white; border: none; border-radius: 4px; padding: 4px 8px; cursor: pointer; font-size: 11px; }
-        .btn-image { background: #d69e2e; color: white; border: none; border-radius: 4px; padding: 4px 8px; cursor: pointer; font-size: 11px; }
-        #firmaCanvas { border: 1px solid #ccc; border-radius: 8px; background: white; width: 100%; height: auto; touch-action: none; cursor: crosshair; }
+        * { box-sizing: border-box; }
+        :root {
+            --primary: #4f46e5;
+            --primary-dark: #4338ca;
+            --primary-light: #eef2ff;
+            --success: #10b981;
+            --success-dark: #059669;
+            --warning: #f59e0b;
+            --warning-dark: #d97706;
+            --danger: #ef4444;
+            --danger-dark: #dc2626;
+            --info: #0ea5e9;
+            --purple: #8b5cf6;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-400: #9ca3af;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --radius-sm: 8px;
+            --radius: 12px;
+            --radius-lg: 16px;
+            --shadow-sm: 0 1px 2px 0 rgba(0,0,0,0.05);
+            --shadow: 0 4px 6px -1px rgba(0,0,0,0.07), 0 2px 4px -2px rgba(0,0,0,0.05);
+            --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.08), 0 4px 6px -4px rgba(0,0,0,0.05);
+            --shadow-xl: 0 20px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.05);
+        }
+        html, body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: #f1f5f9;
+            background-image: radial-gradient(at 0% 0%, rgba(79, 70, 229, 0.06) 0px, transparent 50%),
+                              radial-gradient(at 100% 0%, rgba(14, 165, 233, 0.06) 0px, transparent 50%);
+            background-attachment: fixed;
+            color: var(--gray-800);
+            margin: 0;
+            padding: 0;
+            font-size: 14px;
+            line-height: 1.5;
+        }
 
-        .seq-box {
-            border: 2px solid #e2e8f0;
-            border-radius: 8px;
-            padding: 10px 12px;
-            cursor: pointer;
-            flex: 1;
+        /* LOGIN */
+        .login-wrap { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; }
+        .login-box {
+            background: white;
+            padding: 40px 32px;
+            max-width: 420px;
+            width: 100%;
+            border-radius: 20px;
+            box-shadow: 0 25px 50px -12px rgba(0,0,0,0.15);
             text-align: center;
-            transition: all 0.2s;
-            background: #f8fafc;
+            border: 1px solid var(--gray-200);
+        }
+        .login-logo {
+            width: 72px; height: 72px;
+            border-radius: 20px;
+            background: linear-gradient(135deg, var(--primary), var(--purple));
+            display: flex; align-items: center; justify-content: center;
+            font-size: 36px;
+            margin: 0 auto 20px;
+            box-shadow: 0 10px 25px -5px rgba(79, 70, 229, 0.4);
+        }
+        .login-box h2 { margin: 0 0 8px; font-size: 24px; font-weight: 800; color: var(--gray-900); }
+        .login-box p.subtitle { margin: 0 0 24px; color: var(--gray-500); font-size: 14px; }
+
+        /* LAYOUT PRINCIPAL */
+        .app-container { max-width: 1440px; margin: 0 auto; padding: 20px; }
+        .app-header {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--purple) 100%);
+            border-radius: var(--radius-lg);
+            padding: 22px 28px;
+            margin-bottom: 20px;
+            color: white;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 15px;
+            box-shadow: 0 10px 25px -5px rgba(79, 70, 229, 0.35);
+        }
+        .app-header-left { display: flex; align-items: center; gap: 16px; }
+        .app-logo { width: 52px; height: 52px; background: rgba(255,255,255,0.2); backdrop-filter: blur(10px); border-radius: 14px; display: flex; align-items: center; justify-content: center; font-size: 26px; }
+        .app-title { font-size: 20px; font-weight: 800; margin: 0; letter-spacing: -0.3px; }
+        .app-subtitle { font-size: 13px; opacity: 0.9; margin: 2px 0 0; }
+        .sucursal-badge { background: rgba(255,255,255,0.25); backdrop-filter: blur(10px); padding: 6px 14px; border-radius: 20px; font-size: 13px; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; }
+
+        .grid-layout { display: grid; grid-template-columns: 1fr 360px; gap: 20px; }
+
+        /* CARDS */
+        .card {
+            background: white;
+            padding: 22px;
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow);
+            border: 1px solid var(--gray-200);
+        }
+        .card-title { display: flex; align-items: center; gap: 10px; margin: 0 0 18px; font-size: 16px; font-weight: 700; color: var(--gray-800); }
+        .card-title .icon { width: 32px; height: 32px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 16px; }
+
+        /* SECCIONES INTERNAS */
+        .seccion-interna {
+            background: white;
+            padding: 20px;
+            border-radius: var(--radius);
+            border: 1px solid var(--gray-200);
+            margin-bottom: 20px;
+        }
+        .seccion-interna.highlight {
+            background: linear-gradient(135deg, #eef2ff 0%, #f5f3ff 100%);
+            border-color: #c7d2fe;
+        }
+        .seccion-interna.caja {
+            background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%);
+            border-color: #a7f3d0;
+        }
+        .seccion-header { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid var(--gray-200); }
+        .seccion-header h4 { margin: 0; font-size: 15px; font-weight: 700; color: var(--gray-800); }
+        .seccion-icon { width: 34px; height: 34px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 17px; flex-shrink: 0; }
+        .icon-blue { background: #dbeafe; color: #1e40af; }
+        .icon-green { background: #d1fae5; color: #065f46; }
+        .icon-purple { background: #ede9fe; color: #5b21b6; }
+        .icon-orange { background: #fed7aa; color: #9a3412; }
+        .icon-red { background: #fee2e2; color: #991b1b; }
+
+        /* LABELS E INPUTS */
+        label { font-size: 12px; font-weight: 600; color: var(--gray-600); display: block; margin-bottom: 6px; letter-spacing: 0.2px; }
+        input, select, textarea {
+            width: 100%;
+            padding: 10px 14px;
+            border: 1.5px solid var(--gray-200);
+            border-radius: var(--radius-sm);
+            font-size: 14px;
+            font-family: inherit;
+            background: white;
+            color: var(--gray-800);
+            transition: all 0.15s ease;
+            height: 42px;
+            -webkit-appearance: none;
+            appearance: none;
+        }
+        input:focus, select:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.1);
+        }
+        input:read-only { background: var(--gray-50); color: var(--gray-600); cursor: default; }
+        select {
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%236b7280'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 12px center;
+            background-size: 16px;
+            padding-right: 36px;
+        }
+
+        /* BOTONES */
+        button {
+            font-family: inherit;
+            font-size: 14px;
+            font-weight: 600;
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            transition: all 0.15s ease;
+            border: none;
+            padding: 10px 16px;
+            min-height: 42px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+        button:active { transform: translateY(1px); }
+        .btn-primary { background: linear-gradient(135deg, var(--primary), var(--purple)); color: white; box-shadow: 0 4px 10px -2px rgba(79, 70, 229, 0.4); }
+        .btn-primary:hover { box-shadow: 0 6px 15px -2px rgba(79, 70, 229, 0.5); }
+        .btn-success { background: linear-gradient(135deg, var(--success), var(--success-dark)); color: white; box-shadow: 0 4px 10px -2px rgba(16, 185, 129, 0.4); }
+        .btn-success:hover { box-shadow: 0 6px 15px -2px rgba(16, 185, 129, 0.5); }
+        .btn-warning { background: linear-gradient(135deg, var(--warning), var(--warning-dark)); color: white; box-shadow: 0 4px 10px -2px rgba(245, 158, 11, 0.4); }
+        .btn-danger { background: linear-gradient(135deg, var(--danger), var(--danger-dark)); color: white; box-shadow: 0 4px 10px -2px rgba(239, 68, 68, 0.4); }
+        .btn-info { background: linear-gradient(135deg, var(--info), #0284c7); color: white; box-shadow: 0 4px 10px -2px rgba(14, 165, 233, 0.4); }
+        .btn-ghost { background: var(--gray-100); color: var(--gray-700); }
+        .btn-ghost:hover { background: var(--gray-200); }
+        .btn-full { width: 100%; }
+        .btn-sm { min-height: 34px; padding: 6px 12px; font-size: 12px; border-radius: 8px; }
+        .btn-xs { min-height: 28px; padding: 4px 10px; font-size: 11px; border-radius: 6px; }
+        .btn-icon { width: 34px; height: 34px; min-height: 34px; padding: 0; border-radius: 8px; }
+
+        /* CEDULA ROW */
+        .cedula-row { display: grid; grid-template-columns: 1fr 46px; gap: 6px; }
+        .cedula-row button { background: linear-gradient(135deg, var(--warning), var(--warning-dark)); color: white; min-height: 42px; }
+
+        /* SEQUENCE BOXES */
+        .seq-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 8px; }
+        .seq-box {
+            border: 2px solid var(--gray-200);
+            border-radius: var(--radius);
+            padding: 14px;
+            cursor: pointer;
+            text-align: center;
+            transition: all 0.2s ease;
+            background: white;
+            position: relative;
+            overflow: hidden;
+        }
+        .seq-box::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 4px;
+            background: var(--gray-200);
+            transition: background 0.2s;
+        }
+        .seq-box:hover { border-color: var(--gray-300); transform: translateY(-2px); box-shadow: var(--shadow); }
+        .seq-box.seq-active {
+            border-color: var(--primary);
+            background: linear-gradient(135deg, #eef2ff, #f5f3ff);
+            box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.1);
+        }
+        .seq-box.seq-active::before { background: linear-gradient(90deg, var(--primary), var(--purple)); }
+        .seq-box.seq-inactive { opacity: 0.65; }
+        .seq-num { font-size: 22px; font-weight: 800; color: var(--gray-900); display: block; }
+        .seq-label { font-size: 11px; color: var(--gray-500); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; display: block; margin: 4px 0; }
+        .seq-status { font-size: 11px; font-weight: 700; }
+
+        /* TABLAS */
+        .table-wrapper {
+            background: white;
+            border: 1px solid var(--gray-200);
+            border-radius: var(--radius);
+            overflow: hidden;
+        }
+        .table-responsive { width: 100%; overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        thead { background: linear-gradient(180deg, #f9fafb 0%, #f3f4f6 100%); }
+        th {
+            text-align: left;
+            padding: 12px 14px;
+            font-weight: 700;
+            color: var(--gray-600);
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border-bottom: 1.5px solid var(--gray-200);
+            position: sticky;
+            top: 0;
+            z-index: 1;
+        }
+        td { padding: 12px 14px; border-bottom: 1px solid var(--gray-100); vertical-align: middle; }
+        tbody tr { transition: background 0.15s; }
+        tbody tr:hover { background: var(--gray-50); }
+        tbody tr:last-child td { border-bottom: none; }
+
+        .scroll-talonario { max-height: 420px; overflow-y: auto; border: 1px solid var(--gray-200); border-radius: var(--radius); background: white; }
+        .scroll-talonario table { min-width: 500px; }
+        .scroll-talonario input[type=number] { height: 34px; padding: 6px 10px; font-size: 13px; text-align: right; }
+        .scroll-talonario .monto-fila { background: linear-gradient(135deg, #ecfdf5, #d1fae5); color: #065f46; font-weight: 700; border: none; }
+
+        /* BANNERS */
+        .subtotal-banner {
+            display: flex;
+            justify-content: flex-end;
+            align-items: center;
+            gap: 10px;
+            padding: 14px 18px;
+            background: linear-gradient(135deg, #eef2ff, #f5f3ff);
+            border-radius: var(--radius);
+            margin-top: 12px;
+            font-size: 14px;
+            color: var(--primary-dark);
+            font-weight: 600;
+        }
+        .subtotal-banner .amount { font-size: 20px; font-weight: 800; color: var(--primary); }
+        .total-banner {
+            display: flex;
+            justify-content: flex-end;
+            align-items: center;
+            gap: 10px;
+            padding: 16px 20px;
+            background: linear-gradient(135deg, #ecfdf5, #d1fae5);
+            border-radius: var(--radius);
+            margin-top: 12px;
+            font-size: 14px;
+            color: #065f46;
+            font-weight: 600;
+        }
+        .total-banner .amount { font-size: 22px; font-weight: 800; color: var(--success-dark); }
+
+        /* ALERT BOXES */
+        .alert-box {
+            padding: 14px 18px;
+            border-radius: var(--radius);
+            font-size: 13px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+        .alert-info { background: linear-gradient(135deg, #e0f2fe, #bae6fd); border-left: 4px solid var(--info); color: #075985; }
+        .alert-warning { background: linear-gradient(135deg, #fef3c7, #fde68a); border-left: 4px solid var(--warning); color: #92400e; }
+        .alert-danger { background: linear-gradient(135deg, #fee2e2, #fecaca); border-left: 4px solid var(--danger); color: #991b1b; }
+
+        /* FIRMA */
+        #firmaCanvas {
+            border: 2px dashed var(--gray-300);
+            border-radius: var(--radius);
+            background: white;
+            width: 100%;
+            height: auto;
+            touch-action: none;
+            cursor: crosshair;
+            transition: border-color 0.2s;
+        }
+        #firmaCanvas:hover { border-color: var(--primary); }
+
+        /* PANEL LATERAL */
+        .panel-lateral {
             display: flex;
             flex-direction: column;
-            gap: 2px;
+            gap: 16px;
+            height: max-content;
+            position: sticky;
+            top: 20px;
         }
-        .seq-box:hover { background: #f1f5f9; }
-        .seq-active { border-color: #2563eb; background: #eff6ff; box-shadow: 0 0 0 1px #2563eb; }
-        .seq-inactive { opacity: 0.8; }
-        .seq-num { font-size: 18px; font-weight: bold; color: #0f172a; }
-        .seq-label { font-size: 11px; color: #64748b; }
-        .seq-status { font-size: 12px; font-weight: 600; }
-
-        .inventario-total-box { background:#ebf8ff; border:1px solid #90cdf4; border-radius:8px; padding:8px 12px; text-align:center; font-size:13px; color:#2b6cb0; font-weight:bold; margin-bottom:8px; }
-
-        @media(max-width: 850px) {
-            .grid-layout { grid-template-columns: 1fr; gap: 16px; }
-            body { padding: 8px; }
-            .card, .panel-lateral { padding: 12px; border-radius: 12px; }
-            .seccion-interna { padding: 10px; border-radius: 10px; }
+        .panel-card {
+            background: white;
+            padding: 20px;
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow);
+            border: 1px solid var(--gray-200);
         }
+        .panel-card .panel-title {
+            display: flex; align-items: center; gap: 8px;
+            font-size: 14px; font-weight: 700; color: var(--gray-800);
+            margin: 0 0 14px; padding-bottom: 12px;
+            border-bottom: 1px solid var(--gray-100);
+        }
+
+        .deuda-box {
+            background: linear-gradient(135deg, #fef2f2, #fee2e2);
+            border: 1px solid #fecaca;
+            border-radius: var(--radius);
+            padding: 16px;
+            text-align: center;
+        }
+        .deuda-box .label { font-size: 11px; font-weight: 700; text-transform: uppercase; color: #991b1b; letter-spacing: 0.5px; }
+        .deuda-box .value { font-size: 24px; font-weight: 800; color: var(--danger-dark); margin-top: 4px; display: block; }
+
+        .inventario-total {
+            background: linear-gradient(135deg, #ecfeff, #cffafe);
+            border: 1px solid #a5f3fc;
+            border-radius: var(--radius);
+            padding: 12px;
+            text-align: center;
+            font-size: 13px;
+            color: #155e75;
+            font-weight: 700;
+            margin-bottom: 10px;
+        }
+        .inventario-total .big { font-size: 20px; font-weight: 800; display: block; color: #0e7490; }
+
+        .scroll-lista {
+            max-height: 280px;
+            overflow-y: auto;
+            border: 1px solid var(--gray-200);
+            border-radius: var(--radius);
+            background: white;
+        }
+        .scroll-lista table { font-size: 12px; }
+        .scroll-lista th { font-size: 10px; padding: 10px; }
+        .scroll-lista td { padding: 8px 10px; }
+
+        /* GRID DE CAMPOS */
+        .field-row { display: grid; gap: 12px; }
+        .field-row.cols-2 { grid-template-columns: 1fr 1fr; }
+        .field-row.cols-3 { grid-template-columns: repeat(3, 1fr); }
+        .field-row.cols-4 { grid-template-columns: 1fr 1fr 1fr 100px; }
+        .field-row.input-inline { grid-template-columns: 1fr 140px 100px; }
+
+        .section-divider {
+            display: flex; align-items: center; gap: 10px;
+            margin: 20px 0 12px;
+            font-size: 13px; font-weight: 700; color: var(--gray-700);
+        }
+        .section-divider::before, .section-divider::after {
+            content: ''; flex: 1; height: 1px; background: var(--gray-200);
+        }
+
+        /* BADGES */
+        .badge {
+            display: inline-flex; align-items: center; gap: 4px;
+            padding: 3px 10px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+        }
+        .badge-blue { background: #dbeafe; color: #1e40af; }
+        .badge-green { background: #d1fae5; color: #065f46; }
+        .badge-orange { background: #fed7aa; color: #9a3412; }
+        .badge-gray { background: var(--gray-100); color: var(--gray-600); }
+
+        .chip { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; background: var(--gray-100); border-radius: 6px; font-size: 11px; font-weight: 600; color: var(--gray-600); }
+
+        /* LOGOUT BTN */
+        .btn-logout { background: rgba(255,255,255,0.2); color: white; border: 1px solid rgba(255,255,255,0.3); padding: 8px 16px; border-radius: 10px; font-size: 13px; font-weight: 600; min-height: auto; }
+        .btn-logout:hover { background: rgba(255,255,255,0.3); }
+
+        /* BANNER EDICION */
+        .banner-edit {
+            background: linear-gradient(135deg, #fef3c7 0%, #fed7aa 100%);
+            border: 2px solid var(--warning);
+            border-left: 8px solid var(--warning-dark);
+            padding: 16px 20px;
+            border-radius: var(--radius);
+            margin-bottom: 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 15px;
+            flex-wrap: wrap;
+            box-shadow: 0 4px 15px -4px rgba(245, 158, 11, 0.4);
+            animation: pulseWarning 2s ease-in-out infinite;
+        }
+        @keyframes pulseWarning {
+            0%, 100% { box-shadow: 0 4px 15px -4px rgba(245, 158, 11, 0.4); }
+            50% { box-shadow: 0 8px 25px -4px rgba(245, 158, 11, 0.6); }
+        }
+        .banner-edit .title { font-weight: 800; color: #92400e; font-size: 15px; }
+        .banner-edit .desc { font-size: 13px; color: #78350f; margin-top: 2px; }
+
+        /* EMPTY STATE */
+        .empty-state { text-align: center; padding: 30px 20px; color: var(--gray-400); font-size: 13px; }
+        .empty-state .icon { font-size: 36px; margin-bottom: 8px; display: block; opacity: 0.5; }
+
+        /* MODAL */
+        .modal { display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(4px); z-index: 10000; padding: 20px; overflow-y: auto; }
+        .modal.show { display: block; }
+        .modal-box {
+            background: white;
+            max-width: 900px;
+            margin: 20px auto;
+            padding: 24px;
+            border-radius: var(--radius-lg);
+            box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5);
+            animation: modalIn 0.2s ease-out;
+        }
+        @keyframes modalIn {
+            from { opacity: 0; transform: translateY(10px) scale(0.98); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+
+        /* RESPONSIVE */
+        @media(max-width: 1024px) {
+            .grid-layout { grid-template-columns: 1fr; }
+            .panel-lateral { position: static; }
+        }
+        @media(max-width: 640px) {
+            .app-container { padding: 12px; }
+            .app-header { padding: 16px 18px; }
+            .card, .panel-card { padding: 16px; }
+            .seccion-interna { padding: 14px; }
+            .field-row.cols-3, .field-row.cols-4, .field-row.input-inline { grid-template-columns: 1fr 1fr; }
+            .seq-grid { grid-template-columns: 1fr; }
+            .app-title { font-size: 16px; }
+        }
+        .grid-full { grid-column: 1 / -1; }
+
+        /* scrollbar */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: var(--gray-100); border-radius: 4px; }
+        ::-webkit-scrollbar-thumb { background: var(--gray-300); border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--gray-400); }
     </style>
 </head>
 <body>
 
     <!-- LOGIN -->
-    <div id="login-section" class="login-box" style="display:none;">
-        <h2>📝 Ingreso de Sucursal</h2>
-        <input type="email" id="email" placeholder="Correo de la sucursal">
-        <input type="password" id="pass" placeholder="Contraseña">
-        <button class="btn-blue" onclick="login()">Ingresar al Sistema</button>
+    <div id="login-section" class="login-wrap" style="display:none;">
+        <div class="login-box">
+            <div class="login-logo">♻️</div>
+            <h2>Sistema de Reciclaje</h2>
+            <p class="subtitle">Ingrese sus credenciales para continuar</p>
+            <input type="email" id="email" placeholder="Correo de la sucursal" style="margin-bottom:10px;">
+            <input type="password" id="pass" placeholder="Contraseña" style="margin-bottom:16px;">
+            <button class="btn-primary btn-full" onclick="login()">🔓 Ingresar al Sistema</button>
+        </div>
     </div>
 
     <!-- MÓDULO PRINCIPAL -->
-    <div id="modulo-principal" class="grid-layout" style="display:none;">
+    <div id="modulo-principal" class="app-container" style="display:none;">
 
-        <div class="card">
-            <button onclick="logout()" style="float: right; background:#ff5252; color:white; border:none; border-radius:6px; padding:6px 12px; cursor:pointer; font-weight:bold; margin-left: 10px; min-height: auto;">Cerrar Sesión</button>
-            <h3>📍 Sucursal: <span id="sucursal-txt" style="color:#2e7d32">...</span></h3>
-
-            <!-- BANNER MODO EDICIÓN DE CIERRE PASADO -->
-            <div id="bannerEdicionCierre" style="display:none; background:#fffaf0; border:2px solid #dd6b20; border-left:8px solid #dd6b20; padding:14px 18px; border-radius:10px; margin-bottom:15px;">
-                <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
-                    <div>
-                        <div style="font-weight:bold; color:#c05621; font-size:16px;">⚠️ MODO EDICIÓN: CIERRE PASADO</div>
-                        <div style="font-size:13px; color:#744210; margin-top:4px;">
-                            Estás editando el cierre del <b id="bannerFechaCierre">-</b>. Al guardar se <b>ACTUALIZARÁ</b> ese cierre.
-                        </div>
-                    </div>
-                    <button onclick="cancelarEdicionCierre()" style="background:#ff5252; color:white; border:none; padding:8px 16px; border-radius:8px; cursor:pointer; font-weight:bold; min-height:auto; font-size:13px;">✕ Cancelar edición</button>
+        <!-- HEADER -->
+        <div class="app-header">
+            <div class="app-header-left">
+                <div class="app-logo">♻️</div>
+                <div>
+                    <h1 class="app-title">Sistema de Facturación</h1>
+                    <p class="app-subtitle">Sucursal: <span id="sucursal-txt">...</span></p>
                 </div>
             </div>
-
-            <div class="box-ultimo-cierre">
-                <span style="font-weight:bold; color:#2b6cb0;">📌 ÚLTIMO CIERRE REALIZADO:</span>
-                <div id="infoUltimoCierre" style="margin-top:4px;">Cargando último cierre...</div>
+            <div style="display:flex; gap:10px; align-items:center;">
+                <span class="sucursal-badge">📍 <span id="sucursal-txt2">...</span></span>
+                <button class="btn-logout" onclick="logout()">Salir →</button>
             </div>
+        </div>
 
-            <div style="max-width: 100%; margin-bottom:15px;">
-                <label>Fecha de Operación</label>
-                <input type="date" id="fecha">
+        <!-- BANNER MODO EDICIÓN -->
+        <div id="bannerEdicionCierre" class="banner-edit" style="display:none;">
+            <div>
+                <div class="title">⚠️ MODO EDICIÓN: CIERRE PASADO</div>
+                <div class="desc">Editando el cierre del <b id="bannerFechaCierre">-</b>. Al guardar se <b>ACTUALIZARÁ</b> ese cierre.</div>
             </div>
+            <button class="btn-danger btn-sm" onclick="cancelarEdicionCierre()">✕ Cancelar edición</button>
+        </div>
 
-            <!-- 1. FACTURACIÓN -->
-            <div class="seccion-interna" style="border: 1px solid #4299e1; background: #f0f8ff;">
-                <h4 style="margin-bottom:10px; color:#2b6cb0;">🛒 1. FACTURACIÓN ACTUAL (RECIBO DE MATERIAL)</h4>
+        <div class="grid-layout">
 
-                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 8px;">
-                    <div>
-                        <label>Cédula del Cliente</label>
-                        <div class="cedula-row">
-                            <input type="text" id="cedulaCliente" placeholder="Ej: 112340567">
-                            <button id="btnValidarCed" class="btn-orange" onclick="validarCedulaTSE()">🔎</button>
-                        </div>
-                    </div>
-                    <div>
-                        <label>Nombre Completo</label>
-                        <input type="text" id="nombreCliente" placeholder="Nombre completo">
-                    </div>
-                    <div>
-                        <label># Número de Factura</label>
-                        <input type="text" id="numFacturaCliente" placeholder="Automático" style="border: 1px solid #2b6cb0; font-weight: bold; background: #fff;">
+            <!-- COLUMNA IZQUIERDA -->
+            <div style="display:flex; flex-direction:column; gap:20px;">
+
+                <!-- ULTIMO CIERRE -->
+                <div class="alert-box alert-info">
+                    <span style="font-size:24px;">📌</span>
+                    <div style="flex:1;">
+                        <strong style="display:block; margin-bottom:2px;">ÚLTIMO CIERRE REALIZADO</strong>
+                        <div id="infoUltimoCierre" style="font-size:13px;">Cargando...</div>
                     </div>
                 </div>
 
-                <div style="grid-column: 1 / -1; margin-top: 10px;">
-                    <label>Seleccionar Secuencia de Facturación Activa:</label>
-                    <div style="display: flex; gap: 12px; margin-top: 5px;">
-                        <div id="seq-default-box" class="seq-box seq-active" onclick="cambiarSecuencia('default')">
-                            <span class="seq-num" id="num-default">Cargando...</span>
-                            <span class="seq-label">Secuencia Base (Automática)</span>
-                            <span class="seq-status">🔵 Activo</span>
-                        </div>
-                        <div id="seq-secundaria-box" class="seq-box seq-inactive" onclick="cambiarSecuencia('secundaria')">
-                            <span class="seq-num" id="num-secundaria">Cargando...</span>
-                            <span class="seq-label">Secuencia 1144</span>
-                            <span class="seq-status">⚪ Inactivo</span>
+                <!-- FECHA -->
+                <div class="card">
+                    <div class="field-row cols-2">
+                        <div>
+                            <label>📅 Fecha de Operación</label>
+                            <input type="date" id="fecha">
                         </div>
                     </div>
                 </div>
 
-                <div class="scroll-talonario" style="margin-top: 15px;">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Detalle Material</th>
-                                <th>Precio (₡/Kg)</th>
-                                <th style="width:110px;">Cantidad (Kg)</th>
-                                <th style="width:130px;">Monto (₡)</th>
-                            </tr>
-                        </thead>
-                        <tbody id="body-lista-facturacion"></tbody>
-                    </table>
-                </div>
+                <!-- 1. FACTURACIÓN -->
+                <div class="card">
+                    <div class="card-title">
+                        <span class="icon" style="background:#dbeafe;">🛒</span>
+                        1. Facturación Actual
+                    </div>
 
-                <div class="subtotal-banner">
-                    Subtotal Factura: ₡<span id="subtotalFacturaTxt">0</span>
-                </div>
+                    <div class="field-row cols-3">
+                        <div>
+                            <label>Cédula del Cliente</label>
+                            <div class="cedula-row">
+                                <input type="text" id="cedulaCliente" placeholder="Ej: 112340567">
+                                <button id="btnValidarCed" onclick="validarCedulaTSE()">🔎</button>
+                            </div>
+                        </div>
+                        <div>
+                            <label>Nombre Completo</label>
+                            <input type="text" id="nombreCliente" placeholder="Nombre completo">
+                        </div>
+                        <div>
+                            <label># Número de Factura</label>
+                            <input type="text" id="numFacturaCliente" style="border-color: var(--primary); font-weight: 700; background: var(--primary-light);">
+                        </div>
+                    </div>
 
-                <div style="margin-top:15px; border-top:1px solid #e2e8f0; padding-top:15px;">
-                    <label style="display:block; margin-bottom:5px;">✍️ Firma del Cliente (dibuje con el mouse o dedo)</label>
+                    <div style="margin-top:18px;">
+                        <label>🔀 Seleccionar Secuencia Activa</label>
+                        <div class="seq-grid">
+                            <div id="seq-default-box" class="seq-box seq-active" onclick="cambiarSecuencia('default')">
+                                <span class="seq-num" id="num-default">...</span>
+                                <span class="seq-label">Base Automática</span>
+                                <span class="seq-status">🔵 Activo</span>
+                            </div>
+                            <div id="seq-secundaria-box" class="seq-box seq-inactive" onclick="cambiarSecuencia('secundaria')">
+                                <span class="seq-num" id="num-secundaria">...</span>
+                                <span class="seq-label">Secuencia 1144</span>
+                                <span class="seq-status">⚪ Inactivo</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div style="margin-top:18px;">
+                        <label>📦 Materiales a Recibir</label>
+                        <div class="scroll-talonario">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Material</th>
+                                        <th>Precio / Kg</th>
+                                        <th style="width:120px; text-align:right;">Cantidad (kg)</th>
+                                        <th style="width:130px; text-align:right;">Monto</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="body-lista-facturacion"></tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="subtotal-banner">
+                        <span>Subtotal Factura</span>
+                        <span class="amount">₡<span id="subtotalFacturaTxt">0</span></span>
+                    </div>
+
+                    <div class="section-divider">✍️ Firma Digital del Cliente</div>
+
                     <canvas id="firmaCanvas" width="400" height="150"></canvas>
-                    <div style="display:flex; gap:10px; margin-top:8px;">
-                        <button type="button" id="limpiarFirmaBtn" style="background:#e2e8f0; border:none; padding:8px 16px; border-radius:6px; cursor:pointer; min-height:auto;">🗑️ Limpiar</button>
-                        <button type="button" id="guardarFirmaBtn" style="background:#2b6cb0; color:white; border:none; padding:8px 16px; border-radius:6px; cursor:pointer; min-height:auto;">✅ Guardar Firma</button>
+                    <div style="display:flex; gap:10px; margin-top:10px;">
+                        <button class="btn-ghost" id="limpiarFirmaBtn">🗑️ Limpiar</button>
+                        <button class="btn-info" id="guardarFirmaBtn">✅ Guardar Firma</button>
                     </div>
                     <input type="hidden" id="firmaDataUrl" value="">
+
+                    <button class="btn-success btn-full" style="margin-top:20px; height:52px; font-size:15px;" onclick="guardarFacturaCompletaCliente()">
+                        💾 GUARDAR FACTURA DE CLIENTE
+                    </button>
                 </div>
 
-                <button class="btn-save-fact" onclick="guardarFacturaCompletaCliente()">💾 GUARDAR FACTURA DE CLIENTE</button>
-            </div>
-
-            <!-- 2. FACTURAS REGISTRADAS -->
-            <div class="seccion-interna">
-                <h4>📋 2. FACTURAS REGISTRADAS (<span id="cantFacturasTxt">0</span>)</h4>
-                <div class="table-responsive">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th># Factura / Secuencia</th>
-                                <th>Cliente</th>
-                                <th>Detalle</th>
-                                <th>Monto</th>
-                                <th style="min-width: 180px;">Acciones</th>
-                            </tr>
-                        </thead>
-                        <tbody id="body-facturas-agregadas"></tbody>
-                    </table>
-                </div>
-                <div class="total-banner">
-                    Total Compras: ₡<span id="totalFacturasTxt">0</span>
-                </div>
-            </div>
-
-            <!-- 3. TOTALES POR MATERIAL -->
-            <div class="seccion-interna">
-                <h4>📊 3. TOTALES POR MATERIAL</h4>
-                <div class="table-responsive">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Material</th>
-                                <th>Kilos Totales</th>
-                                <th>Costo Total (₡)</th>
-                            </tr>
-                        </thead>
-                        <tbody id="body-materiales-totales-dia"></tbody>
-                    </table>
-                </div>
-            </div>
-
-            <!-- 4. CONTROL DE CAJA -->
-            <div class="seccion-interna" style="background:#f1f5f9;">
-                <h4>💵 4. CONTROL DE CAJA Y ARQUEO</h4>
-                <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap:10px;">
-                    <div>
-                        <label>Inicio de Caja Base (₡)</label>
-                        <input type="text" id="cajaInicioBase" placeholder="ej: 1 000 000" oninput="formatearInputMoneda(this)" onchange="calcularCajaDinamica()">
+                <!-- 2. FACTURAS REGISTRADAS -->
+                <div class="card">
+                    <div class="card-title">
+                        <span class="icon" style="background:#d1fae5;">📋</span>
+                        2. Facturas Registradas <span class="badge badge-green" style="margin-left:auto;"><span id="cantFacturasTxt">0</span> facturas</span>
                     </div>
-                    <div>
-                        <label>💵 Caja Disponible Hoy (₡)</label>
-                        <input type="text" id="cajaDisponibleActual" readonly style="background:#e6fffa; font-weight:bold; color:#234e52; border:1px solid #319795;">
-                    </div>
-                    <div>
-                        <label>Ventas del Día (₡)</label>
-                        <input type="text" id="ventas" oninput="formatearInputMoneda(this)" onchange="calcularCajaDinamica()">
-                    </div>
-                    <div>
-                        <label>Plata Agregada / Depósitos (₡)</label>
-                        <input type="text" id="depositosRecibidosTxt" readonly style="background:#e2e8f0; font-weight:bold; color:#2b6cb0;">
-                    </div>
-                    <div>
-                        <label>Pagado en Facturas (₡)</label>
-                        <input type="text" id="pagoMat" readonly style="background:#e2e8f0; font-weight:bold; color:#c53030;">
-                    </div>
-                    <div>
-                        <label>Gastos Varios (₡)</label>
-                        <input type="text" id="gastosFact" readonly style="background:#e2e8f0; font-weight:bold; color:#c53030;">
-                    </div>
-                </div>
-
-                <div style="margin-top:15px; border-top: 1px dashed #cbd5e1; padding-top: 10px;">
-                    <h5 style="color:#2b6cb0; margin-bottom:8px;">➕ Agregar Plata / Entrada de Dinero</h5>
-                    <div style="display:grid; grid-template-columns: 1fr 140px 100px; gap:8px;">
-                        <div>
-                            <input type="text" id="depositoDescInput" placeholder="Detalle (ej: Envío de plata)" style="height:36px; font-size:13px;">
-                        </div>
-                        <div>
-                            <input type="text" id="depositoMontoInput" placeholder="Monto (₡)" oninput="formatearInputMoneda(this)" style="height:36px; font-size:13px;">
-                        </div>
-                        <div>
-                            <button class="btn-blue" onclick="agregarDepositoLista()" style="margin-top:5px; height:36px; min-height:auto; font-size:13px; padding:0;">➕ Sumar</button>
+                    <div class="table-wrapper">
+                        <div class="table-responsive">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th># Factura</th>
+                                        <th>Cliente</th>
+                                        <th>Detalle</th>
+                                        <th style="text-align:right;">Monto</th>
+                                        <th style="width:170px; text-align:center;">Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="body-facturas-agregadas"></tbody>
+                            </table>
                         </div>
                     </div>
+                    <div class="total-banner">
+                        <span>Total Compras del Día</span>
+                        <span class="amount">₡<span id="totalFacturasTxt">0</span></span>
+                    </div>
+                </div>
 
-                    <div class="table-responsive" style="margin-top:8px;">
+                <!-- 3. TOTALES POR MATERIAL -->
+                <div class="card">
+                    <div class="card-title">
+                        <span class="icon" style="background:#ede9fe;">📊</span>
+                        3. Totales por Material
+                    </div>
+                    <div class="table-wrapper">
+                        <div class="table-responsive">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Material</th>
+                                        <th style="text-align:right;">Kilos Totales</th>
+                                        <th style="text-align:right;">Costo Total</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="body-materiales-totales-dia"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 4. CONTROL DE CAJA -->
+                <div class="card">
+                    <div class="card-title">
+                        <span class="icon" style="background:#fed7aa;">💵</span>
+                        4. Control de Caja y Arqueo
+                    </div>
+
+                    <div class="field-row cols-3">
+                        <div>
+                            <label>Inicio de Caja Base</label>
+                            <input type="text" id="cajaInicioBase" placeholder="0" oninput="formatearInputMoneda(this)" onchange="calcularCajaDinamica()">
+                        </div>
+                        <div>
+                            <label>💵 Caja Disponible Hoy</label>
+                            <input type="text" id="cajaDisponibleActual" readonly style="background: linear-gradient(135deg, #ecfdf5, #d1fae5); color: var(--success-dark); font-weight: 700; border-color: var(--success);">
+                        </div>
+                        <div>
+                            <label>Ventas del Día</label>
+                            <input type="text" id="ventas" placeholder="0" oninput="formatearInputMoneda(this)" onchange="calcularCajaDinamica()">
+                        </div>
+                        <div>
+                            <label>Plata Agregada / Depósitos</label>
+                            <input type="text" id="depositosRecibidosTxt" readonly style="background: linear-gradient(135deg, #e0f2fe, #bae6fd); color: #075985; font-weight: 700;">
+                        </div>
+                        <div>
+                            <label>Pagado en Facturas</label>
+                            <input type="text" id="pagoMat" readonly style="background: linear-gradient(135deg, #fef2f2, #fee2e2); color: #991b1b; font-weight: 700;">
+                        </div>
+                        <div>
+                            <label>Gastos Varios</label>
+                            <input type="text" id="gastosFact" readonly style="background: linear-gradient(135deg, #fef2f2, #fee2e2); color: #991b1b; font-weight: 700;">
+                        </div>
+                    </div>
+
+                    <div class="section-divider">➕ Agregar Plata / Entrada de Dinero</div>
+
+                    <div class="field-row input-inline">
+                        <input type="text" id="depositoDescInput" placeholder="Detalle (ej: Envío de plata)">
+                        <input type="text" id="depositoMontoInput" placeholder="Monto ₡" oninput="formatearInputMoneda(this)">
+                        <button class="btn-info" onclick="agregarDepositoLista()">➕ Sumar</button>
+                    </div>
+
+                    <div class="table-wrapper" style="margin-top:10px;">
+                        <div class="table-responsive">
+                            <table>
+                                <thead>
+                                    <tr><th>Detalle</th><th style="text-align:right;">Monto</th><th style="width:60px;"></th></tr>
+                                </thead>
+                                <tbody id="body-depositos-lista"></tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="section-divider">📌 Registro de Gastos Varios</div>
+
+                    <div class="field-row input-inline">
+                        <input type="text" id="gastoDescInput" placeholder="Ej: Almuerzo, Gasolina">
+                        <input type="text" id="gastoMontoInput" placeholder="Monto ₡" oninput="formatearInputMoneda(this)">
+                        <button class="btn-info" onclick="agregarGastoLista()">➕ Agregar</button>
+                    </div>
+
+                    <div class="table-wrapper" style="margin-top:10px;">
+                        <div class="table-responsive">
+                            <table>
+                                <thead>
+                                    <tr><th>Descripción</th><th style="text-align:right;">Monto</th><th style="width:60px;"></th></tr>
+                                </thead>
+                                <tbody id="body-gastos-lista"></tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div style="margin-top:20px; padding:18px; background: linear-gradient(135deg, #ecfdf5, #d1fae5); border-radius: var(--radius); border: 1px solid #a7f3d0;">
+                        <label style="color: #065f46;">💰 EFECTIVO FINAL EN MANO</label>
+                        <input type="text" id="cierreMano" readonly style="background:white; color: var(--success-dark); font-weight: 800; font-size:22px; text-align:right; border-color: var(--success);">
+                    </div>
+
+                    <button id="btnEnviarTodo" class="btn-primary btn-full" style="margin-top:16px; height:56px; font-size:16px;" onclick="enviarCierreFirebase()">
+                        🚀 ENVIAR CIERRE DEL DÍA
+                    </button>
+                </div>
+
+            </div>
+
+            <!-- COLUMNA DERECHA -->
+            <div class="panel-lateral">
+
+                <!-- DEUDA -->
+                <div class="panel-card">
+                    <div class="deuda-box">
+                        <div class="label">💳 Deuda Total Sucursal</div>
+                        <span class="value">₡<span id="deudaTotalTxt">0</span></span>
+                    </div>
+                </div>
+
+                <!-- ACCIONES -->
+                <div class="panel-card">
+                    <div class="panel-title">⚡ Acciones Rápidas</div>
+                    <button class="btn-info btn-full" onclick="mostrarUltimoCierre()" style="margin-bottom:8px;">📋 Ver Último Cierre</button>
+                    <button class="btn-warning btn-full" onclick="abrirModalEditarCierre()">✏️ Modificar Último Cierre</button>
+                </div>
+
+                <!-- PRECIOS -->
+                <div class="panel-card">
+                    <div class="panel-title">⚙️ Configuración de Precios</div>
+                    <button class="btn-ghost btn-full" onclick="toggleSeccionPrecios()">🛠️ Editar Precios</button>
+
+                    <div id="seccion-editar-precios" style="display:none; margin-top:14px; padding:14px; background: var(--gray-50); border-radius: var(--radius);">
+                        <label>Material</label>
+                        <select id="editMatSelect" onchange="actualizarPrecioEnEdicion()"></select>
+                        <label style="margin-top:10px;">Nuevo Precio (₡)</label>
+                        <input type="number" id="editMatPrecio">
+                        <button id="btnGuardarPrecio" class="btn-success btn-full" style="margin-top:10px;" onclick="guardarPrecioFirebase()">💾 Guardar Precio</button>
+                    </div>
+
+                    <div class="section-divider" style="margin:16px 0 8px; font-size:11px;">PRECIOS VIGENTES</div>
+                    <div class="scroll-lista">
                         <table>
-                            <thead>
-                                <tr><th>Detalle</th><th>Monto Agregado</th><th></th></tr>
-                            </thead>
-                            <tbody id="body-depositos-lista"></tbody>
+                            <thead><tr><th>Material</th><th style="text-align:right;">₡/Kg</th></tr></thead>
+                            <tbody id="body-lista-precios"></tbody>
                         </table>
                     </div>
                 </div>
 
-                <div style="margin-top:15px; border-top: 1px dashed #cbd5e1; padding-top: 10px;">
-                    <h5 style="color:#4a5568; margin-bottom:8px;">📌 Registro de Gastos Varios</h5>
-                    <div style="display:grid; grid-template-columns: 1fr 140px 100px; gap:8px;">
-                        <div>
-                            <input type="text" id="gastoDescInput" placeholder="Ej: Almuerzo, Gasolina" style="height:36px; font-size:13px;">
-                        </div>
-                        <div>
-                            <input type="text" id="gastoMontoInput" placeholder="Monto (₡)" oninput="formatearInputMoneda(this)" style="height:36px; font-size:13px;">
-                        </div>
-                        <div>
-                            <button class="btn-blue" onclick="agregarGastoLista()" style="margin-top:5px; height:36px; min-height:auto; font-size:13px; padding:0;">➕ Agregar</button>
-                        </div>
+                <!-- INVENTARIO -->
+                <div class="panel-card">
+                    <div class="panel-title">📦 Inventario Actual</div>
+                    <div class="inventario-total">
+                        <span>Total en Stock</span>
+                        <span class="big"><span id="inventarioTotalKg">0.00</span> kg</span>
                     </div>
-
-                    <div class="table-responsive" style="margin-top:8px;">
+                    <div class="scroll-lista">
                         <table>
-                            <thead>
-                                <tr><th>Descripción Gasto</th><th>Monto</th><th></th></tr>
-                            </thead>
-                            <tbody id="body-gastos-lista"></tbody>
+                            <thead><tr><th>Material</th><th style="text-align:right;">kg</th></tr></thead>
+                            <tbody id="body-lista-inventario"></tbody>
                         </table>
                     </div>
+                    <button class="btn-info btn-full" style="margin-top:10px;" onclick="recalcularInventarioDesdeCero()">🔄 Recalcular Inventario</button>
                 </div>
 
-                <div style="margin-top:15px;">
-                    <label>Efectivo Final en Mano (Al cerrar)</label>
-                    <input type="text" id="cierreMano" readonly style="background:#e2e8f0; font-weight:bold; color:#2e7d32; font-size:18px;">
+                <!-- MOVIMIENTOS -->
+                <div class="panel-card">
+                    <div class="panel-title">🏦 Movimientos Cuenta Externa</div>
+                    <label>Tipo de Operación</label>
+                    <select id="tipoMovimiento">
+                        <option value="Salida_Venta">Salida / Venta (+ Deuda)</option>
+                        <option value="Deposito">Depósito (- Deuda)</option>
+                    </select>
+                    <label style="margin-top:10px;">Monto (₡)</label>
+                    <input type="text" id="montoMovimiento" oninput="formatearInputMoneda(this)">
+                    <label style="margin-top:10px;">Fecha de Operación</label>
+                    <input type="date" id="fechaMovimiento">
+                    <label style="margin-top:10px;">Motivo / Detalle</label>
+                    <input type="text" id="motivoMovimiento" placeholder="Ej: Depósito en banco">
+                    <button id="btnGuardarMov" class="btn-primary btn-full" style="margin-top:12px;" onclick="guardarMovimientoCuenta()">Registrar</button>
                 </div>
 
-                <button id="btnEnviarTodo" class="btn-green" onclick="enviarCierreFirebase()">🚀 ENVIAR CIERRE DEL DÍA</button>
             </div>
         </div>
-
-        <!-- PANEL LATERAL -->
-        <div class="panel-lateral">
-            <div class="mini-deuda-box">
-                Deuda Total Sucursal:<br>
-                ₡<span id="deudaTotalTxt">0</span>
-            </div>
-
-            <button class="btn-work" onclick="mostrarUltimoCierre()" style="margin-bottom: 8px;">📋 Ver Último Cierre</button>
-            <button class="btn-work" onclick="abrirModalEditarCierre()" style="margin-bottom: 12px; background:#dd6b20;">✏️ Modificar Último Cierre</button>
-
-            <button class="btn-work" onclick="toggleSeccionPrecios()">⚙️ Configurar Precios Materiales</button>
-
-            <div id="seccion-editar-precios" class="seccion-interna" style="display:none; margin-top:10px;">
-                <h5>Modificar Precio</h5>
-                <select id="editMatSelect" onchange="actualizarPrecioEnEdicion()"></select>
-                <label>Nuevo Precio Unitario (₡)</label>
-                <input type="number" id="editMatPrecio">
-                <button id="btnGuardarPrecio" class="btn-blue" onclick="guardarPrecioFirebase()">💾 Guardar Precio</button>
-            </div>
-
-            <h5 style="margin-top:15px; margin-bottom:5px;">Precios Vigentes</h5>
-            <div class="scroll-precios">
-                <table>
-                    <thead>
-                        <tr><th>Material</th><th>Precio/Kg</th></tr>
-                    </thead>
-                    <tbody id="body-lista-precios"></tbody>
-                </table>
-            </div>
-
-            <!-- INVENTARIO -->
-            <h5 style="margin-top:15px; margin-bottom:5px;">📦 Inventario Actual</h5>
-            <div class="inventario-total-box">
-                Total: <span id="inventarioTotalKg">0.00</span> kg
-            </div>
-            <div class="scroll-precios" style="max-height: 250px; border:1px solid #e2e8f0;">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Material</th>
-                            <th style="text-align:right;">Stock (kg)</th>
-                        </tr>
-                    </thead>
-                    <tbody id="body-lista-inventario"></tbody>
-                </table>
-            </div>
-            <button class="btn-work" onclick="recalcularInventarioDesdeCero()" style="background:#3182ce; margin-top:6px; font-size:13px;">🔄 Recalcular Inventario</button>
-
-            <div class="seccion-interna" style="margin-top:15px;">
-                <h5>🏦 Movimientos Cuenta Externa</h5>
-                <label>Tipo de Operación</label>
-                <select id="tipoMovimiento">
-                    <option value="Salida_Venta">Salida / Venta (+ Deuda)</option>
-                    <option value="Deposito">Depósito (- Deuda)</option>
-                </select>
-                <label>Monto (₡)</label>
-                <input type="text" id="montoMovimiento" oninput="formatearInputMoneda(this)">
-                <label>Fecha de Operación</label>
-                <input type="date" id="fechaMovimiento">
-                <label>Motivo / Detalle</label>
-                <input type="text" id="motivoMovimiento" placeholder="Ej: Depósito en banco">
-                <button id="btnGuardarMov" class="btn-blue" onclick="guardarMovimientoCuenta()">Registrar en Cuenta Externa</button>
-            </div>
-        </div>
-
     </div>
 
     <script type="module">
@@ -416,15 +880,13 @@
         const ID_SECUNDARIA = '1144';
         let temporizadorFirestore = null;
 
-        // ---- ESTADO DE EDICIÓN DE CIERRE PASADO ----
         let modoEdicionCierre = false;
         let cierreIdEnEdicion = null;
         let facturasDocIdsOriginales = [];
-        let facturasEliminadasEnEdicion = []; // Detalles de las facturas eliminadas durante la edición
+        let facturasEliminadasEnEdicion = [];
         let ultimoCierreId = null;
         let ultimoCierreData = null;
 
-        // ---- INVENTARIO ----
         let inventarioActual = {};
 
         // ---------- FIRMA DIGITAL ----------
@@ -472,7 +934,7 @@
             if (!isDrawing) return;
             e.preventDefault();
             const pos = getPos(e);
-            ctx.lineWidth = 2; ctx.lineCap = 'round'; ctx.strokeStyle = '#000';
+            ctx.lineWidth = 2; ctx.lineCap = 'round'; ctx.strokeStyle = '#1e293b';
             ctx.lineTo(pos.x, pos.y); ctx.stroke();
             lastX = pos.x; lastY = pos.y;
         }
@@ -490,8 +952,9 @@
                 else sucursalActual = "Desconocida";
 
                 document.getElementById('login-section').style.display = 'none';
-                document.getElementById('modulo-principal').style.display = 'grid';
+                document.getElementById('modulo-principal').style.display = 'block';
                 document.getElementById('sucursal-txt').innerText = sucursalActual;
+                document.getElementById('sucursal-txt2').innerText = sucursalActual;
 
                 const facturasGuardadas = localStorage.getItem(`facturas_${sucursalActual}`);
                 if (facturasGuardadas) facturasDelDia = JSON.parse(facturasGuardadas);
@@ -515,7 +978,7 @@
                 actualizarTablaDepositos();
                 setTimeout(initFirma, 100);
             } else {
-                document.getElementById('login-section').style.display = 'block';
+                document.getElementById('login-section').style.display = 'flex';
                 document.getElementById('modulo-principal').style.display = 'none';
             }
         });
@@ -525,13 +988,10 @@
         // =====================================================
         async function cargarInventario() {
             try {
-                const docRef = doc(db, "inventario", sucursalActual);
-                const snap = await getDoc(docRef);
+                const snap = await getDoc(doc(db, "inventario", sucursalActual));
                 inventarioActual = snap.exists() ? (snap.data().materiales || {}) : {};
                 renderizarInventario();
-            } catch (e) {
-                console.error("Error cargando inventario:", e);
-            }
+            } catch (e) { console.error(e); }
         }
 
         function renderizarInventario() {
@@ -542,14 +1002,14 @@
             let totalKg = 0;
 
             if (entradas.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="2" style="text-align:center; color:#999;">Inventario vacío.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="2" class="empty-state"><span class="icon">📦</span>Inventario vacío</td></tr>`;
             } else {
                 entradas.sort((a, b) => a[0].localeCompare(b[0]));
                 entradas.forEach(([mat, kg]) => {
                     const kgNum = parseFloat(kg) || 0;
                     totalKg += kgNum;
-                    const color = kgNum < 0 ? '#c53030' : '#2b6cb0';
-                    tbody.innerHTML += `<tr><td style="font-size:12px;">${mat}</td><td style="text-align:right; color:${color}; font-weight:bold; font-size:12px;">${kgNum.toFixed(2)}</td></tr>`;
+                    const color = kgNum < 0 ? 'var(--danger)' : 'var(--primary)';
+                    tbody.innerHTML += `<tr><td style="font-weight:600;">${mat}</td><td style="text-align:right; color:${color}; font-weight:700;">${kgNum.toFixed(2)}</td></tr>`;
                 });
             }
             document.getElementById('inventarioTotalKg').innerText = totalKg.toFixed(2);
@@ -581,16 +1041,13 @@
                     materiales: inventarioActual,
                     ultima_actualizacion: serverTimestamp()
                 }, { merge: true });
-            } catch (e) {
-                console.error("Error guardando inventario:", e);
-            }
+            } catch (e) { console.error(e); }
         }
 
         window.recalcularInventarioDesdeCero = async function() {
-            if (!confirm("🔄 ¿Recalcular el inventario desde cero?\n\nSe leerán TODAS las facturas guardadas de esta sucursal y se reconstruirá el inventario con la suma de todos los kilos.\n\nÚsalo solo si crees que el inventario tiene errores.")) return;
+            if (!confirm("🔄 ¿Recalcular el inventario desde cero?\n\nSe leerán TODAS las facturas de esta sucursal.")) return;
             try {
-                const q = query(collection(db, "facturas_compras"), where("sucursal", "==", sucursalActual));
-                const snap = await getDocs(q);
+                const snap = await getDocs(query(collection(db, "facturas_compras"), where("sucursal", "==", sucursalActual)));
                 const nuevo = {};
                 snap.forEach(d => {
                     const f = d.data();
@@ -606,11 +1063,8 @@
                     ultima_actualizacion: serverTimestamp()
                 }, { merge: true });
                 renderizarInventario();
-                alert("✅ Inventario recalculado desde cero.\n\nSe procesaron " + snap.size + " facturas.");
-            } catch (e) {
-                console.error(e);
-                alert("Error: " + e.message);
-            }
+                alert("✅ Inventario recalculado.\n\nFacturas procesadas: " + snap.size);
+            } catch (e) { alert("Error: " + e.message); }
         };
 
         // =====================================================
@@ -618,11 +1072,9 @@
         // =====================================================
         async function cargarNumerosSecuencias() {
             try {
-                const refBase = doc(db, "contadores_facturas", sucursalActual);
-                const snapBase = await getDoc(refBase);
+                const snapBase = await getDoc(doc(db, "contadores_facturas", sucursalActual));
                 document.getElementById('num-default').innerText = snapBase.exists() ? (snapBase.data().ultimo_numero || 0) + 1 : 1;
-                const refSec = doc(db, "contadores_facturas", `${sucursalActual}_${ID_SECUNDARIA}`);
-                const snapSec = await getDoc(refSec);
+                const snapSec = await getDoc(doc(db, "contadores_facturas", `${sucursalActual}_${ID_SECUNDARIA}`));
                 document.getElementById('num-secundaria').innerText = snapSec.exists() ? (snapSec.data().ultimo_numero || 0) + 1 : 1;
             } catch (error) { console.error(error); }
         }
@@ -644,9 +1096,8 @@
         async function obtenerSiguienteNumeroFacturaActual() {
             try {
                 const idContador = secuenciaActiva ? `${sucursalActual}_${secuenciaActiva}` : sucursalActual;
-                const docRef = doc(db, "contadores_facturas", idContador);
-                const docSnap = await getDoc(docRef);
-                document.getElementById('numFacturaCliente').value = docSnap.exists() ? (docSnap.data().ultimo_numero || 0) + 1 : 1;
+                const snap = await getDoc(doc(db, "contadores_facturas", idContador));
+                document.getElementById('numFacturaCliente').value = snap.exists() ? (snap.data().ultimo_numero || 0) + 1 : 1;
             } catch (error) { console.error(error); }
         }
 
@@ -660,12 +1111,12 @@
                     const inicio = parseFloat(ultimoCierreData.caja_inicio) || 0;
                     const cierre = parseFloat(ultimoCierreData.cierre_mano) || 0;
                     document.getElementById('infoUltimoCierre').innerHTML = `
-                        <b>📥 Dinero Base Inicial:</b> ₡${inicio.toLocaleString('es-CR')} | 
-                        <b>📤 Disponible al Cierre:</b> ₡${cierre.toLocaleString('es-CR')} 
-                        <small style="color:#718096;">(${ultimoCierreData.fecha || ''})</small>`;
+                        📥 <b>Inicial:</b> ₡${inicio.toLocaleString('es-CR')} · 
+                        📤 <b>Cierre:</b> ₡${cierre.toLocaleString('es-CR')} · 
+                        <span style="color:var(--gray-500);">${ultimoCierreData.fecha || ''}</span>`;
                 } else {
                     ultimoCierreId = null; ultimoCierreData = null;
-                    document.getElementById('infoUltimoCierre').innerText = "No se encontraron cierres previos registrados.";
+                    document.getElementById('infoUltimoCierre').innerText = "No hay cierres previos.";
                 }
             } catch (error) { console.error(error); }
         }
@@ -673,16 +1124,15 @@
         window.mostrarUltimoCierre = function() { window.location.href = 'ultimocierre.html'; };
 
         // =====================================================
-        // CARGAR CIERRE PASADO EN EL FORMULARIO PRINCIPAL
+        // CARGAR CIERRE PASADO
         // =====================================================
         window.abrirModalEditarCierre = async function() {
-            if (modoEdicionCierre) { alert("⚠️ Ya estás editando un cierre pasado."); return; }
-            if (!ultimoCierreId) { alert("⚠️ No hay cierre previo registrado para modificar."); return; }
-            if (!confirm("⚠️ ¿Cargar el último cierre en el formulario para modificarlo?\n\nLos datos reemplazarán lo que tengas sin guardar.")) return;
+            if (modoEdicionCierre) { alert("⚠️ Ya estás editando un cierre."); return; }
+            if (!ultimoCierreId) { alert("⚠️ No hay cierre previo."); return; }
+            if (!confirm("⚠️ ¿Cargar el último cierre para modificarlo?")) return;
 
             try {
-                const docRef = doc(db, "revisiones_faltantes", ultimoCierreId);
-                const snap = await getDoc(docRef);
+                const snap = await getDoc(doc(db, "revisiones_faltantes", ultimoCierreId));
                 if (!snap.exists()) { alert("⚠️ El cierre ya no existe."); return; }
                 const data = snap.data();
 
@@ -698,8 +1148,7 @@
                 const sucCierre = data.sucursal || sucursalActual;
 
                 if (fechaCierre) {
-                    const qFac = query(collection(db, "facturas_compras"), where("sucursal", "==", sucCierre), where("fecha", "==", fechaCierre));
-                    const snapFac = await getDocs(qFac);
+                    const snapFac = await getDocs(query(collection(db, "facturas_compras"), where("sucursal", "==", sucCierre), where("fecha", "==", fechaCierre)));
                     snapFac.forEach(fd => {
                         const fdData = fd.data();
                         facturasDelDia.push({ ...fdData, _docId: fd.id });
@@ -727,24 +1176,27 @@
                 calcularCajaDinamica();
 
                 document.getElementById('bannerFechaCierre').innerText = fechaCierre;
-                document.getElementById('bannerEdicionCierre').style.display = 'block';
+                document.getElementById('bannerEdicionCierre').style.display = 'flex';
 
                 const btn = document.getElementById('btnEnviarTodo');
                 btn.innerText = '💾 GUARDAR CAMBIOS DEL CIERRE PASADO';
-                btn.style.background = '#dd6b20';
+                btn.className = 'btn-warning btn-full';
+                btn.style.height = '56px';
+                btn.style.fontSize = '16px';
+                btn.style.marginTop = '16px';
 
                 window.scrollTo({ top: 0, behavior: 'smooth' });
-                alert(`✅ Cierre del ${fechaCierre} cargado.\n\nPuedes eliminar/agregar facturas, editar gastos y depósitos.\nAl terminar pulsa el botón naranja.`);
+                alert(`✅ Cierre del ${fechaCierre} cargado.\n\nAhora puedes modificar todo y guardar.`);
             } catch (e) {
                 console.error(e);
-                alert("Error al cargar el cierre: " + e.message);
+                alert("Error: " + e.message);
                 modoEdicionCierre = false;
                 cierreIdEnEdicion = null;
             }
         };
 
         window.cancelarEdicionCierre = function() {
-            if (!confirm("¿Cancelar la edición del cierre pasado?\n\nSe perderán los cambios no guardados.")) return;
+            if (!confirm("¿Cancelar la edición?")) return;
             limpiarEstadoEdicion();
             location.reload();
         };
@@ -780,9 +1232,9 @@
                 tbody.innerHTML += `
                     <tr>
                         <td style="font-weight:600; font-size:12px;">${mat}</td>
-                        <td style="font-size:12px; color:#666;">₡${precio.toLocaleString('es-CR')}</td>
-                        <td><input type="number" step="any" id="kg_${idx}" data-mat="${mat}" data-precio="${precio}" placeholder="0.0" oninput="calcularTotalFila(this, 'monto_${idx}')" style="height:32px; padding:4px; font-size:13px;"></td>
-                        <td><input type="text" id="monto_${idx}" class="monto-fila" readonly value="₡0" style="height:32px; padding:4px; font-size:13px; font-weight:bold; background:#e2e8f0; border:none;"></td>
+                        <td style="font-size:12px; color:var(--gray-600);">₡${precio.toLocaleString('es-CR')}</td>
+                        <td><input type="number" step="any" id="kg_${idx}" data-mat="${mat}" data-precio="${precio}" placeholder="0.0" oninput="calcularTotalFila(this, 'monto_${idx}')"></td>
+                        <td><input type="text" id="monto_${idx}" class="monto-fila" readonly value="₡0"></td>
                     </tr>`;
             });
         }
@@ -810,10 +1262,10 @@
             for (const [material, precio] of Object.entries(preciosTrabajador)) {
                 if (precio > 0) {
                     tienePrecios = true;
-                    tbody.innerHTML += `<tr><td>${material}</td><td><b>₡${precio.toLocaleString('es-CR')}</b></td></tr>`;
+                    tbody.innerHTML += `<tr><td style="font-weight:600;">${material}</td><td style="text-align:right; color:var(--primary); font-weight:700;">₡${precio.toLocaleString('es-CR')}</td></tr>`;
                 }
             }
-            if (!tienePrecios) tbody.innerHTML = `<tr><td colspan="2" style="text-align:center; color:#999;">No hay precios configurados.</td></tr>`;
+            if (!tienePrecios) tbody.innerHTML = `<tr><td colspan="2" class="empty-state">Sin precios</td></tr>`;
         }
 
         function cargarSelectEdicionPrecios() {
@@ -840,7 +1292,7 @@
                 cargarTablaPreciosVisual();
                 cargarTablaListaMateriales();
             } catch (error) { alert("Error: " + error.message); }
-            finally { btn.disabled = false; btn.innerText = "💾 Guardar Precio"; }
+            finally { btn.disabled = false; }
         };
 
         window.toggleSeccionPrecios = () => {
@@ -860,7 +1312,7 @@
             const btn = document.getElementById('btnValidarCed');
             const cedulaLimpia = cedulaInput.replace(/-/g, '');
             if (!cedulaLimpia) { alert("Ingrese una cédula."); return; }
-            btn.innerText = "⚡..."; btn.disabled = true;
+            btn.innerText = "⏳"; btn.disabled = true;
             try {
                 const docSnap = await getDoc(doc(db, "clientes", cedulaLimpia));
                 if (docSnap.exists()) {
@@ -872,12 +1324,12 @@
                     document.getElementById('nombreCliente').readOnly = false;
                     document.getElementById('nombreCliente').focus();
                 }
-            } catch (error) { alert("Error al buscar en la base de datos."); }
+            } catch (error) { alert("Error al buscar."); }
             finally { btn.innerText = "🔎"; btn.disabled = false; }
         };
 
         // =====================================================
-        // GUARDAR FACTURA (CON INVENTARIO)
+        // GUARDAR FACTURA
         // =====================================================
         window.guardarFacturaCompletaCliente = async function() {
             const cedula = document.getElementById('cedulaCliente').value.trim();
@@ -885,9 +1337,9 @@
             let numFactura = document.getElementById('numFacturaCliente').value.trim();
             const cedulaLimpia = cedula.replace(/-/g, '');
 
-            if (!cedulaLimpia || !nombre || !numFactura) { alert("⚠️ Debe ingresar Cédula, Nombre y Número de Factura."); return; }
+            if (!cedulaLimpia || !nombre || !numFactura) { alert("⚠️ Complete Cédula, Nombre y Número."); return; }
             let numFacturaInt = parseInt(numFactura);
-            if (isNaN(numFacturaInt) || numFacturaInt < 1) { alert("⚠️ Número de factura inválido."); return; }
+            if (isNaN(numFacturaInt) || numFacturaInt < 1) { alert("⚠️ Número inválido."); return; }
 
             let materialesIngresados = [];
             listaMaterialesBase.forEach((mat, idx) => {
@@ -899,7 +1351,7 @@
                 }
             });
 
-            if (materialesIngresados.length === 0) { alert("⚠️ Ingrese el pesaje (kg) en al menos un material."); return; }
+            if (materialesIngresados.length === 0) { alert("⚠️ Ingrese al menos un material con kg."); return; }
 
             const firmaData = document.getElementById('firmaDataUrl').value || '';
             const fecha = document.getElementById('fecha').value || new Date().toISOString().split('T')[0];
@@ -916,32 +1368,17 @@
                 let totalFactura = materialesIngresados.reduce((sum, item) => sum + item.total_pago, 0);
 
                 const facturaObj = {
-                    num_factura: numFactura,
-                    serie: secuenciaActiva,
-                    cedula: cedulaLimpia,
-                    nombre: nombre,
-                    detalles_materiales: materialesIngresados,
-                    total_factura: totalFactura,
-                    firma: firmaData,
-                    sucursal: sucursalActual,
-                    fecha: fecha,
-                    uid_trabajador: uidTrabajador,
-                    timestamp: serverTimestamp()
+                    num_factura: numFactura, serie: secuenciaActiva, cedula: cedulaLimpia, nombre: nombre,
+                    detalles_materiales: materialesIngresados, total_factura: totalFactura, firma: firmaData,
+                    sucursal: sucursalActual, fecha: fecha, uid_trabajador: uidTrabajador, timestamp: serverTimestamp()
                 };
 
                 const docRefNew = await addDoc(collection(db, "facturas_compras"), facturaObj);
-
-                // ➕ Sumar al inventario
                 await actualizarInventarioFirestore(deltaDesdeDetalles(materialesIngresados, +1));
 
                 facturasDelDia.push({
-                    num_factura: numFactura,
-                    serie: secuenciaActiva,
-                    cedula: cedulaLimpia,
-                    nombre,
-                    detalles_materiales: materialesIngresados,
-                    total_factura: totalFactura,
-                    firma: firmaData,
+                    num_factura: numFactura, serie: secuenciaActiva, cedula: cedulaLimpia, nombre,
+                    detalles_materiales: materialesIngresados, total_factura: totalFactura, firma: firmaData,
                     _docId: docRefNew.id
                 });
                 localStorage.setItem(`facturas_${sucursalActual}`, JSON.stringify(facturasDelDia));
@@ -952,10 +1389,10 @@
                 await obtenerSiguienteNumeroFacturaActual();
                 document.getElementById('cedulaCliente').focus();
 
-                alert(`✅ Factura #${numFactura}${secuenciaActiva ? ' ('+secuenciaActiva+')' : ''} guardada. Inventario actualizado.`);
+                alert(`✅ Factura #${numFactura}${secuenciaActiva ? ' ('+secuenciaActiva+')' : ''} guardada.`);
             } catch (error) {
-                console.error("Error:", error);
-                alert("❌ Error al guardar la factura: " + error.message);
+                console.error(error);
+                alert("❌ Error: " + error.message);
             }
         };
 
@@ -974,7 +1411,7 @@
         window.agregarDepositoLista = () => {
             const desc = document.getElementById('depositoDescInput').value.trim();
             const monto = obtenerNumeroLimpio('depositoMontoInput');
-            if (monto <= 0) { alert("⚠️ Ingrese un monto válido."); return; }
+            if (monto <= 0) { alert("⚠️ Ingrese monto válido."); return; }
             listaDepositosDia.push({ descripcion: desc || "Entrada / Depósito", monto: monto });
             localStorage.setItem(`depositos_${sucursalActual}`, JSON.stringify(listaDepositosDia));
             document.getElementById('depositoDescInput').value = "";
@@ -996,10 +1433,10 @@
             const tbody = document.getElementById('body-depositos-lista');
             tbody.innerHTML = "";
             let total = 0;
-            if (listaDepositosDia.length === 0) tbody.innerHTML = `<tr><td colspan="3" style="text-align:center; color:#999;">No hay dinero extra agregado.</td></tr>`;
+            if (listaDepositosDia.length === 0) tbody.innerHTML = `<tr><td colspan="3" class="empty-state">Sin entradas de dinero</td></tr>`;
             else listaDepositosDia.forEach((dep, idx) => {
                 total += dep.monto;
-                tbody.innerHTML += `<tr><td>${dep.descripcion}</td><td><b>+₡${dep.monto.toLocaleString('es-CR')}</b></td><td style="width:40px; text-align:center;"><button onclick="eliminarDepositoLista(${idx})" class="btn-del">x</button></td></tr>`;
+                tbody.innerHTML += `<tr><td>${dep.descripcion}</td><td style="text-align:right; color: var(--success-dark); font-weight:700;">+₡${dep.monto.toLocaleString('es-CR')}</td><td style="text-align:center;"><button onclick="eliminarDepositoLista(${idx})" class="btn-danger btn-xs">✕</button></td></tr>`;
             });
             document.getElementById('depositosRecibidosTxt').value = "₡" + total.toLocaleString('es-CR');
             calcularCajaDinamica();
@@ -1008,7 +1445,7 @@
         window.agregarGastoLista = () => {
             const desc = document.getElementById('gastoDescInput').value.trim();
             const monto = obtenerNumeroLimpio('gastoMontoInput');
-            if (!desc || monto <= 0) { alert("⚠️ Ingrese descripción y monto válido."); return; }
+            if (!desc || monto <= 0) { alert("⚠️ Ingrese descripción y monto."); return; }
             listaGastosDia.push({ descripcion: desc, monto: monto });
             localStorage.setItem(`gastos_${sucursalActual}`, JSON.stringify(listaGastosDia));
             document.getElementById('gastoDescInput').value = "";
@@ -1028,10 +1465,10 @@
             const tbody = document.getElementById('body-gastos-lista');
             tbody.innerHTML = "";
             let total = 0;
-            if (listaGastosDia.length === 0) tbody.innerHTML = `<tr><td colspan="3" style="text-align:center; color:#999;">No hay gastos registrados.</td></tr>`;
+            if (listaGastosDia.length === 0) tbody.innerHTML = `<tr><td colspan="3" class="empty-state">Sin gastos registrados</td></tr>`;
             else listaGastosDia.forEach((gasto, idx) => {
                 total += gasto.monto;
-                tbody.innerHTML += `<tr><td>${gasto.descripcion}</td><td><b>-₡${gasto.monto.toLocaleString('es-CR')}</b></td><td style="width:40px; text-align:center;"><button onclick="eliminarGastoLista(${idx})" class="btn-del">x</button></td></tr>`;
+                tbody.innerHTML += `<tr><td>${gasto.descripcion}</td><td style="text-align:right; color: var(--danger-dark); font-weight:700;">-₡${gasto.monto.toLocaleString('es-CR')}</td><td style="text-align:center;"><button onclick="eliminarGastoLista(${idx})" class="btn-danger btn-xs">✕</button></td></tr>`;
             });
             document.getElementById('gastosFact').value = "₡" + total.toLocaleString('es-CR');
             calcularCajaDinamica();
@@ -1068,14 +1505,10 @@
             if (!sucursalActual || sucursalActual === "Desconocida") return;
             try {
                 await setDoc(doc(db, "cajas_en_vivo", sucursalActual), {
-                    sucursal: sucursalActual,
-                    caja_inicio: obtenerNumeroLimpio('cajaInicioBase'),
-                    depositos: obtenerTotalDepositos(),
-                    ventas: obtenerNumeroLimpio('ventas'),
-                    compras_facturas: totalAcumuladoComprasDia,
-                    gastos: obtenerTotalGastos(),
-                    caja_disponible: disponible,
-                    ultima_actualizacion: serverTimestamp()
+                    sucursal: sucursalActual, caja_inicio: obtenerNumeroLimpio('cajaInicioBase'),
+                    depositos: obtenerTotalDepositos(), ventas: obtenerNumeroLimpio('ventas'),
+                    compras_facturas: totalAcumuladoComprasDia, gastos: obtenerTotalGastos(),
+                    caja_disponible: disponible, ultima_actualizacion: serverTimestamp()
                 }, { merge: true });
             } catch (e) { console.error(e); }
         }
@@ -1103,7 +1536,7 @@
             let acumuladoMateriales = {};
 
             if (facturasDelDia.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:#999;">No hay facturas guardadas todavía.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="5" class="empty-state"><span class="icon">📄</span>No hay facturas guardadas todavía</td></tr>`;
             } else {
                 facturasDelDia.forEach((fact, index) => {
                     const montoFactura = parseFloat(fact.total_factura) || 0;
@@ -1111,15 +1544,17 @@
                     let resumenMats = fact.detalles_materiales.map(m => `${m.material} (${m.kilos}kg)`).join(', ');
                     tbody.innerHTML += `
                         <tr>
-                            <td><b>Fact: #${fact.num_factura}</b> ${fact.serie ? '('+fact.serie+')' : ''}</td>
-                            <td><b>${fact.nombre}</b><br><small style="color:#555">${fact.cedula}</small></td>
-                            <td style="max-width: 250px; font-size:11px; color:#444;">${resumenMats}</td>
-                            <td><b>₡${montoFactura.toLocaleString('es-CR')}</b></td>
-                            <td style="display: flex; gap: 4px; flex-wrap: wrap;">
-                                <button onclick="imprimirFactura(${index})" class="btn-print">🖨️</button>
-                                <button onclick="imprimirFacturaA4(${index})" class="btn-print-a4">📄</button>
-                                <button onclick="descargarFacturaImagen(${index})" class="btn-image">📷</button>
-                                <button onclick="eliminarFacturaGeneral(${index})" class="btn-del">✕</button>
+                            <td><span class="badge badge-blue">#${fact.num_factura}</span> ${fact.serie ? '<span class="chip">'+fact.serie+'</span>' : ''}</td>
+                            <td><b>${fact.nombre}</b><br><small style="color:var(--gray-500);">${fact.cedula}</small></td>
+                            <td style="max-width: 250px; font-size:11px; color:var(--gray-600);">${resumenMats}</td>
+                            <td style="text-align:right; font-weight:700; color:var(--primary);">₡${montoFactura.toLocaleString('es-CR')}</td>
+                            <td style="text-align:center;">
+                                <div style="display:flex; gap:4px; justify-content:center;">
+                                    <button onclick="imprimirFactura(${index})" class="btn-info btn-xs" title="Ticket térmico 80mm">🖨️</button>
+                                    <button onclick="imprimirFacturaA4(${index})" class="btn-primary btn-xs" title="Imprimir A4">📄</button>
+                                    <button onclick="descargarFacturaImagen(${index})" class="btn-warning btn-xs" title="Descargar imagen">📷</button>
+                                    <button onclick="eliminarFacturaGeneral(${index})" class="btn-danger btn-xs" title="Eliminar">✕</button>
+                                </div>
                             </td>
                         </tr>`;
                     fact.detalles_materiales.forEach(m => {
@@ -1137,33 +1572,22 @@
             renderizarTablaAcumuladosDia(acumuladoMateriales);
         }
 
-        // =====================================================
-        // ELIMINAR FACTURA (CON INVENTARIO)
-        // =====================================================
         window.eliminarFacturaGeneral = async (index) => {
             const f = facturasDelDia[index];
             if (!f) return;
 
             if (modoEdicionCierre) {
-                if (!confirm(`¿Quitar la factura #${f.num_factura} de este cierre?\n\n(Solo se eliminará definitivamente al pulsar "GUARDAR CAMBIOS DEL CIERRE PASADO")`)) return;
-                // En modo edición solo quitamos de la lista; el borrado e inventario se hace al guardar
+                if (!confirm(`¿Quitar la factura #${f.num_factura}?`)) return;
                 if (f._docId) facturasEliminadasEnEdicion.push(f);
                 facturasDelDia.splice(index, 1);
                 localStorage.setItem(`facturas_${sucursalActual}`, JSON.stringify(facturasDelDia));
                 actualizarTablaGeneralDia();
             } else {
-                if (!confirm(`¿Eliminar la factura #${f.num_factura}?\n\nSe borrará definitivamente y se descontará del inventario.`)) return;
+                if (!confirm(`¿Eliminar definitivamente la factura #${f.num_factura}?`)) return;
                 try {
-                    if (f._docId) {
-                        await deleteDoc(doc(db, "facturas_compras", f._docId));
-                    }
-                    // ➖ Restar del inventario
+                    if (f._docId) await deleteDoc(doc(db, "facturas_compras", f._docId));
                     await actualizarInventarioFirestore(deltaDesdeDetalles(f.detalles_materiales, -1));
-                } catch (e) {
-                    console.error("Error al eliminar factura:", e);
-                    alert("Error al eliminar la factura: " + e.message);
-                    return;
-                }
+                } catch (e) { alert("Error: " + e.message); return; }
                 facturasDelDia.splice(index, 1);
                 localStorage.setItem(`facturas_${sucursalActual}`, JSON.stringify(facturasDelDia));
                 actualizarTablaGeneralDia();
@@ -1171,72 +1595,64 @@
         };
 
         // =====================================================
-        // GENERAR HTML FACTURA A4
+        // FACTURA A4
         // =====================================================
         function generarHTMLFactura(fact, fecha) {
-            const hoy = new Date();
-            const vencimiento = new Date(hoy);
-            vencimiento.setDate(vencimiento.getDate() + 15);
+            const vencimiento = new Date(); vencimiento.setDate(vencimiento.getDate() + 15);
             const datosSuc = datosSucursales[sucursalActual] || { nombre: sucursalActual };
-
             const detalles = fact.detalles_materiales.map(m =>
                 `<tr>
                     <td style="padding:8px 10px; border-bottom:1px solid #e2e8f0; font-size:13px;">${m.material}</td>
                     <td style="padding:8px 10px; border-bottom:1px solid #e2e8f0; text-align:center; font-size:13px;">${m.kilos} kg</td>
                     <td style="padding:8px 10px; border-bottom:1px solid #e2e8f0; text-align:right; font-size:13px;">₡${m.precio_unitario.toLocaleString('es-CR')}</td>
                     <td style="padding:8px 10px; border-bottom:1px solid #e2e8f0; text-align:right; font-size:13px; font-weight:600;">₡${m.total_pago.toLocaleString('es-CR')}</td>
-                </tr>`
-            ).join('');
-
+                </tr>`).join('');
             const firmaHTML = fact.firma ?
-                `<div style="margin-top:25px; border-top:2px solid #2b6cb0; padding-top:15px; text-align:center;"><p style="font-weight:bold; color:#2d3748; font-size:14px; margin-bottom:8px;">Firma del Cliente</p><img src="${fact.firma}" style="max-width:180px; max-height:70px; border:1px solid #cbd5e1; border-radius:6px; padding:4px; background:white;"></div>` :
-                `<div style="margin-top:25px; border-top:2px solid #2b6cb0; padding-top:15px; text-align:center;"><p style="font-weight:bold; color:#2d3748; font-size:14px; margin-bottom:8px;">Firma del Cliente</p><div style="height:60px; border-bottom:1px solid #333; width:220px; margin:0 auto;"></div><p style="font-size:11px; color:#718096; margin-top:6px;">(Acepto el contenido de esta factura)</p></div>`;
-
+                `<div style="margin-top:25px; border-top:2px solid #2b6cb0; padding-top:15px; text-align:center;"><p style="font-weight:bold; font-size:14px;">Firma del Cliente</p><img src="${fact.firma}" style="max-width:180px; max-height:70px; border:1px solid #cbd5e1; border-radius:6px; padding:4px;"></div>` :
+                `<div style="margin-top:25px; border-top:2px solid #2b6cb0; padding-top:15px; text-align:center;"><p style="font-weight:bold; font-size:14px;">Firma del Cliente</p><div style="height:60px; border-bottom:1px solid #333; width:220px; margin:0 auto;"></div></div>`;
             let lineasSuc = '';
-            if (datosSuc.nombre) lineasSuc += `<h1 style="font-size: 22px; margin: 0; color: #2b6cb0;">📍 ${datosSuc.nombre}</h1>`;
-            if (datosSuc.encargado) lineasSuc += `<p style="margin: 4px 0 0; color: #4a5568; font-size: 13px;">Encargado: ${datosSuc.encargado}</p>`;
-            if (datosSuc.cedula) lineasSuc += `<p style="margin: 2px 0 0; color: #718096; font-size: 12px;">Cédula: ${datosSuc.cedula}</p>`;
-            if (datosSuc.direccion) lineasSuc += `<p style="margin: 2px 0 0; color: #718096; font-size: 12px;">Dirección: ${datosSuc.direccion}</p>`;
-            if (datosSuc.telefono) lineasSuc += `<p style="margin: 2px 0 0; color: #718096; font-size: 12px;">Tel: ${datosSuc.telefono}</p>`;
-            if (datosSuc.correo) lineasSuc += `<p style="margin: 2px 0 0; color: #718096; font-size: 12px;">Email: ${datosSuc.correo}</p>`;
-
-            return `
-                <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 210mm; margin: 0 auto; padding: 8mm 10mm; background: white; color: #1a202c;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid #2b6cb0; padding-bottom: 12px; margin-bottom: 20px;">
-                        <div>${lineasSuc}</div>
-                        <div style="text-align: right;">
-                            <h2 style="font-size: 18px; margin: 0; color: #2d3748;">FACTURA #${fact.num_factura}${fact.serie ? ' ('+fact.serie+')' : ''}</h2>
-                            <p style="margin: 4px 0 0; font-size: 13px; color: #4a5568;">Fecha: ${fecha}</p>
-                            <p style="margin: 2px 0 0; font-size: 13px; color: #4a5568;">Vencimiento: ${vencimiento.toLocaleDateString('es-CR')}</p>
+            if (datosSuc.nombre) lineasSuc += `<h1 style="font-size:22px; margin:0; color:#2b6cb0;">📍 ${datosSuc.nombre}</h1>`;
+            if (datosSuc.encargado) lineasSuc += `<p style="margin:4px 0 0; font-size:13px;">Encargado: ${datosSuc.encargado}</p>`;
+            if (datosSuc.cedula) lineasSuc += `<p style="margin:2px 0 0; font-size:12px;">Cédula: ${datosSuc.cedula}</p>`;
+            if (datosSuc.direccion) lineasSuc += `<p style="margin:2px 0 0; font-size:12px;">Dirección: ${datosSuc.direccion}</p>`;
+            if (datosSuc.telefono) lineasSuc += `<p style="margin:2px 0 0; font-size:12px;">Tel: ${datosSuc.telefono}</p>`;
+            if (datosSuc.correo) lineasSuc += `<p style="margin:2px 0 0; font-size:12px;">Email: ${datosSuc.correo}</p>`;
+            return `<div style="font-family:'Segoe UI',Arial,sans-serif; max-width:210mm; margin:0 auto; padding:8mm 10mm; background:white;">
+                <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:3px solid #2b6cb0; padding-bottom:12px; margin-bottom:20px;">
+                    <div>${lineasSuc}</div>
+                    <div style="text-align:right;">
+                        <h2 style="font-size:18px; margin:0;">FACTURA #${fact.num_factura}${fact.serie ? ' ('+fact.serie+')' : ''}</h2>
+                        <p style="margin:4px 0 0; font-size:13px;">Fecha: ${fecha}</p>
+                        <p style="margin:2px 0 0; font-size:13px;">Vencimiento: ${vencimiento.toLocaleDateString('es-CR')}</p>
+                    </div>
+                </div>
+                <div style="background:#f7fafc; padding:14px 18px; border-radius:8px; margin-bottom:22px; border:1px solid #e2e8f0;">
+                    <p style="margin:4px 0; font-size:14px;"><strong>Cliente:</strong> ${fact.nombre}</p>
+                    <p style="margin:4px 0; font-size:14px;"><strong>Cédula:</strong> ${fact.cedula}</p>
+                </div>
+                <table style="width:100%; border-collapse:collapse; margin-bottom:20px; font-size:14px; border:1px solid #e2e8f0;">
+                    <thead><tr style="background:#2b6cb0; color:white;">
+                        <th style="padding:10px 12px; text-align:left;">Material</th>
+                        <th style="padding:10px 12px; text-align:center;">Cantidad (kg)</th>
+                        <th style="padding:10px 12px; text-align:right;">Precio Unitario</th>
+                        <th style="padding:10px 12px; text-align:right;">Importe</th>
+                    </tr></thead>
+                    <tbody>${detalles}</tbody>
+                </table>
+                <div style="display:flex; justify-content:flex-end; margin-bottom:20px;">
+                    <div style="width:60%; max-width:300px;">
+                        <div style="display:flex; justify-content:space-between; padding:10px 12px; font-size:18px; font-weight:bold; background:#ebf8ff; border-radius:6px;">
+                            <span>TOTAL A PAGAR</span><span>₡${fact.total_factura.toLocaleString('es-CR')}</span>
                         </div>
                     </div>
-                    <div style="background: #f7fafc; padding: 14px 18px; border-radius: 8px; margin-bottom: 22px; border: 1px solid #e2e8f0;">
-                        <p style="margin: 4px 0; font-size: 14px;"><strong>Cliente:</strong> ${fact.nombre}</p>
-                        <p style="margin: 4px 0; font-size: 14px;"><strong>Cédula:</strong> ${fact.cedula}</p>
-                    </div>
-                    <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 14px; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden;">
-                        <thead><tr style="background: #2b6cb0; color: white;">
-                            <th style="padding: 10px 12px; text-align: left;">Material</th>
-                            <th style="padding: 10px 12px; text-align: center;">Cantidad (kg)</th>
-                            <th style="padding: 10px 12px; text-align: right;">Precio Unitario</th>
-                            <th style="padding: 10px 12px; text-align: right;">Importe</th>
-                        </tr></thead>
-                        <tbody>${detalles}</tbody>
-                    </table>
-                    <div style="display: flex; justify-content: flex-end; margin-bottom: 20px;">
-                        <div style="width: 60%; max-width: 300px;">
-                            <div style="display: flex; justify-content: space-between; padding: 10px 12px; border-bottom: 2px solid #2b6cb0; font-size: 18px; font-weight: bold; background: #ebf8ff; border-radius: 6px;">
-                                <span>TOTAL A PAGAR</span><span>₡${fact.total_factura.toLocaleString('es-CR')}</span>
-                            </div>
-                        </div>
-                    </div>
-                    ${firmaHTML}
-                    <div style="text-align: center; margin-top: 30px; font-size: 12px; color: #718096; border-top: 1px solid #e2e8f0; padding-top: 15px;">Gracias por su visita - ¡Vuelva pronto!</div>
-                </div>`;
+                </div>
+                ${firmaHTML}
+                <div style="text-align:center; margin-top:30px; font-size:12px; color:#718096; border-top:1px solid #e2e8f0; padding-top:15px;">Gracias por su visita</div>
+            </div>`;
         }
 
         // =====================================================
-        // TICKET TÉRMICO 80MM
+        // TICKET 80MM
         // =====================================================
         function generarHTMLFacturaTermica(fact, fecha) {
             const norm = (texto) => String(texto == null ? '' : texto).normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/₡/g, 'CRC');
@@ -1251,7 +1667,6 @@
             const datosSuc = datosSucursales[sucursalActual] || { nombre: sucursalActual };
             const A = 42;
             const LINEA = '='.repeat(A); const LINEA_D = '-'.repeat(A);
-
             let header = LINEA + '\n';
             if (datosSuc.nombre) header += pad(norm(datosSuc.nombre), A, 'center') + '\n';
             if (datosSuc.encargado) header += pad('Encargado: ' + norm(datosSuc.encargado), A) + '\n';
@@ -1260,26 +1675,22 @@
             if (datosSuc.telefono) header += pad('Tel: ' + norm(datosSuc.telefono), A) + '\n';
             if (datosSuc.correo) header += pad('Email: ' + norm(datosSuc.correo), A) + '\n';
             header += LINEA;
-
             const titulo = 'FACTURA #' + fact.num_factura + (fact.serie ? ' (' + fact.serie + ')' : '');
             let info = '\n' + pad(norm(titulo), A, 'center') + '\n' + pad('Fecha: ' + norm(fecha), A) + '\n\n';
             info += pad('Cliente: ' + norm(fact.nombre), A) + '\n' + pad('Cedula:  ' + norm(fact.cedula), A) + '\n' + LINEA_D;
             let cab = pad('MATERIAL', 16) + pad('KG', 6, 'right') + pad('CRC/KG', 9, 'right') + pad('TOTAL', 11, 'right') + '\n' + LINEA_D;
-
             let filas = '';
             fact.detalles_materiales.forEach(m => {
                 filas += pad(norm(m.material), 16) + pad((parseFloat(m.kilos) || 0).toFixed(1), 6, 'right') + pad(fmt(m.precio_unitario), 9, 'right') + pad(fmt(m.total_pago), 11, 'right') + '\n';
             });
-
             let totalB = LINEA_D + '\n' + pad('TOTAL:', 31, 'right') + pad('CRC ' + fmt(fact.total_factura), 11, 'right') + '\n' + LINEA + '\n';
             let firmaB = '\n' + pad('FIRMA DEL CLIENTE', A, 'center') + '\n\n';
-            if (fact.firma) firmaB += '<div style="text-align:center; margin: 4px 0;"><img src="' + fact.firma + '" style="max-width:60mm; max-height:20mm;"></div>\n';
+            if (fact.firma) firmaB += '<div style="text-align:center; margin:4px 0;"><img src="' + fact.firma + '" style="max-width:60mm; max-height:20mm;"></div>\n';
             else firmaB += '\n\n';
             firmaB += '<div style="text-align:center; font-size:10px;">________________________________</div>\n';
             firmaB += pad('(Acepto el contenido de esta factura)', A, 'center') + '\n\n' + LINEA + '\n';
             firmaB += pad('Gracias por su visita', A, 'center') + '\n' + pad('Vuelva pronto', A, 'center') + '\n\n\n';
-
-            return `<pre style="font-family: 'Courier New', Courier, monospace; font-size: 11px; line-height: 1.25; white-space: pre-wrap; word-wrap: break-word; margin: 0;">${header}${info}${cab}${filas}${totalB}${firmaB}</pre>`;
+            return `<pre style="font-family:'Courier New',monospace; font-size:11px; line-height:1.25; white-space:pre-wrap; margin:0;">${header}${info}${cab}${filas}${totalB}${firmaB}</pre>`;
         }
 
         window.imprimirFactura = (index) => {
@@ -1289,7 +1700,7 @@
             const html = generarHTMLFacturaTermica(fact, fecha);
             const v = window.open('', '_blank', 'width=380,height=700');
             if (v) {
-                v.document.write(`<html><head><title>Ticket #${fact.num_factura}</title><style>@page{size:80mm auto;margin:0;}*{margin:0;padding:0;box-sizing:border-box;}html,body{width:80mm;background:white;font-family:'Courier New',monospace;color:#000;}body{padding:2mm 3mm 20mm 3mm;}@media print{html,body{width:80mm;margin:0;padding:0 3mm 15mm 3mm;}}</style></head><body>${html}</body></html>`);
+                v.document.write(`<html><head><title>Ticket #${fact.num_factura}</title><style>@page{size:80mm auto;margin:0;}*{margin:0;padding:0;box-sizing:border-box;}html,body{width:80mm;background:white;font-family:'Courier New',monospace;}body{padding:2mm 3mm 20mm 3mm;}</style></head><body>${html}</body></html>`);
                 v.document.close(); v.focus();
                 setTimeout(() => v.print(), 600);
             } else alert('Permita ventanas emergentes.');
@@ -1302,7 +1713,7 @@
             const html = generarHTMLFactura(fact, fecha);
             const v = window.open('', '_blank', 'width=800,height=600');
             if (v) {
-                v.document.write(`<html><head><title>Factura #${fact.num_factura} (A4)</title><style>*{margin:0;padding:0;box-sizing:border-box;}body{background:white;font-family:'Segoe UI',Arial,sans-serif;}@media print{@page{size:A4;margin:0;}body{margin:0;padding:0;}}</style></head><body>${html}</body></html>`);
+                v.document.write(`<html><head><title>Factura #${fact.num_factura} (A4)</title><style>*{margin:0;padding:0;box-sizing:border-box;}body{background:white;font-family:'Segoe UI',Arial,sans-serif;}@media print{@page{size:A4;margin:0;}}</style></head><body>${html}</body></html>`);
                 v.document.close(); v.focus();
                 setTimeout(() => v.print(), 500);
             } else alert('Permita ventanas emergentes.');
@@ -1325,7 +1736,7 @@
                     link.href = canvas.toDataURL('image/png');
                     link.click();
                     document.body.removeChild(tempDiv);
-                }).catch(err => { console.error(err); document.body.removeChild(tempDiv); alert('Error al generar imagen.'); });
+                }).catch(err => { console.error(err); document.body.removeChild(tempDiv); alert('Error.'); });
             }, 300);
         };
 
@@ -1333,39 +1744,31 @@
         // ENVIAR / GUARDAR CIERRE
         // =====================================================
         window.enviarCierreFirebase = async function() {
-            if (facturasDelDia.length === 0) { alert("❌ No hay facturas registradas para enviar el cierre."); return; }
+            if (facturasDelDia.length === 0) { alert("❌ No hay facturas."); return; }
             if (modoEdicionCierre) await guardarCierreEditado();
             else await guardarCierreNuevo();
         };
 
         async function guardarCierreNuevo() {
-            if (!confirm("¿Desea enviar el cierre del día?")) return;
+            if (!confirm("¿Enviar el cierre del día?")) return;
             const btn = document.getElementById('btnEnviarTodo');
-            btn.disabled = true; btn.innerText = "Subiendo Cierre...";
+            btn.disabled = true; btn.innerText = "⏳ Subiendo...";
             const fecha = document.getElementById('fecha').value;
             try {
                 await addDoc(collection(db, "revisiones_faltantes"), {
-                    uid_trabajador: uidTrabajador,
-                    sucursal: sucursalActual,
-                    fecha: fecha,
-                    caja_inicio: obtenerNumeroLimpio('cajaInicioBase'),
-                    total_ventas: obtenerNumeroLimpio('ventas'),
-                    total_depositos: obtenerTotalDepositos(),
-                    detalles_depositos: listaDepositosDia,
-                    pago_materiales: totalAcumuladoComprasDia,
-                    gastos_facturas: obtenerTotalGastos(),
-                    detalles_gastos: listaGastosDia,
-                    cierre_mano: obtenerNumeroLimpio('cierreMano'),
-                    total_facturas: facturasDelDia.length,
-                    estado: "Pendiente",
-                    timestamp: serverTimestamp()
+                    uid_trabajador: uidTrabajador, sucursal: sucursalActual, fecha: fecha,
+                    caja_inicio: obtenerNumeroLimpio('cajaInicioBase'), total_ventas: obtenerNumeroLimpio('ventas'),
+                    total_depositos: obtenerTotalDepositos(), detalles_depositos: listaDepositosDia,
+                    pago_materiales: totalAcumuladoComprasDia, gastos_facturas: obtenerTotalGastos(),
+                    detalles_gastos: listaGastosDia, cierre_mano: obtenerNumeroLimpio('cierreMano'),
+                    total_facturas: facturasDelDia.length, estado: "Pendiente", timestamp: serverTimestamp()
                 });
                 localStorage.removeItem(`facturas_${sucursalActual}`);
                 localStorage.removeItem(`gastos_${sucursalActual}`);
                 localStorage.removeItem(`depositos_${sucursalActual}`);
                 localStorage.removeItem(`cajaInicioBase_${sucursalActual}`);
                 localStorage.removeItem(`ventas_${sucursalActual}`);
-                alert("✅ Cierre enviado correctamente.");
+                alert("✅ Cierre enviado.");
                 location.reload();
             } catch (e) {
                 alert("Error: " + e.message);
@@ -1374,10 +1777,9 @@
         }
 
         async function guardarCierreEditado() {
-            if (!confirm("⚠️ ¿Guardar los cambios sobre el CIERRE PASADO?\n\nSe eliminarán las facturas que quitaste y se descontarán del inventario.")) return;
+            if (!confirm("⚠️ ¿Guardar los cambios sobre el cierre pasado?")) return;
             const btn = document.getElementById('btnEnviarTodo');
-            btn.disabled = true; btn.innerText = "Guardando cambios...";
-
+            btn.disabled = true; btn.innerText = "⏳ Guardando...";
             try {
                 const fechaCierre = document.getElementById('fecha').value;
                 const cajaInicio = obtenerNumeroLimpio('cajaInicioBase');
@@ -1387,62 +1789,42 @@
                 const totalDepositos = obtenerTotalDepositos();
                 const cierreMano = (cajaInicio + totalDepositos + ventas) - (totalFacturas + totalGastos);
 
-                // 1. Eliminar facturas borradas
                 let eliminadasOk = 0;
                 for (const f of facturasEliminadasEnEdicion) {
-                    if (f._docId) {
-                        await deleteDoc(doc(db, "facturas_compras", f._docId));
-                        eliminadasOk++;
-                    }
-                    // ➖ Restar del inventario
+                    if (f._docId) { await deleteDoc(doc(db, "facturas_compras", f._docId)); eliminadasOk++; }
                     await actualizarInventarioFirestore(deltaDesdeDetalles(f.detalles_materiales, -1));
                 }
 
-                // 2. Actualizar el documento del cierre
                 await setDoc(doc(db, "revisiones_faltantes", cierreIdEnEdicion), {
-                    caja_inicio: cajaInicio,
-                    total_ventas: ventas,
-                    total_depositos: totalDepositos,
-                    detalles_depositos: listaDepositosDia,
-                    pago_materiales: totalFacturas,
-                    gastos_facturas: totalGastos,
-                    detalles_gastos: listaGastosDia,
-                    cierre_mano: cierreMano,
-                    fecha: fechaCierre,
-                    total_facturas: facturasDelDia.length,
-                    ultima_modificacion: serverTimestamp(),
-                    modificado_por: uidTrabajador
+                    caja_inicio: cajaInicio, total_ventas: ventas,
+                    total_depositos: totalDepositos, detalles_depositos: listaDepositosDia,
+                    pago_materiales: totalFacturas, gastos_facturas: totalGastos,
+                    detalles_gastos: listaGastosDia, cierre_mano: cierreMano,
+                    fecha: fechaCierre, total_facturas: facturasDelDia.length,
+                    ultima_modificacion: serverTimestamp(), modificado_por: uidTrabajador
                 }, { merge: true });
 
-                alert(`✅ Cierre pasado actualizado.\n\n• Facturas eliminadas: ${eliminadasOk}\n• Total facturas finales: ${facturasDelDia.length}\n• Inventario ajustado.`);
+                alert(`✅ Cierre actualizado.\n• Eliminadas: ${eliminadasOk}\n• Total final: ${facturasDelDia.length}`);
                 limpiarEstadoEdicion();
                 location.reload();
-            } catch (e) {
-                console.error(e);
-                alert("Error al guardar: " + e.message);
-                btn.disabled = false; btn.innerText = "💾 GUARDAR CAMBIOS DEL CIERRE PASADO";
-            }
+            } catch (e) { alert("Error: " + e.message); btn.disabled = false; btn.innerText = "💾 GUARDAR CAMBIOS"; }
         }
 
         // =====================================================
-        // MOVIMIENTOS CUENTA EXTERNA
+        // MOVIMIENTOS
         // =====================================================
         window.guardarMovimientoCuenta = async function() {
             const tipo = document.getElementById('tipoMovimiento').value;
             const monto = obtenerNumeroLimpio('montoMovimiento');
             const fechaMov = document.getElementById('fechaMovimiento').value;
             const motivo = document.getElementById('motivoMovimiento').value.trim();
-            if (!monto || monto <= 0 || !fechaMov) { alert("⚠️ Asigne fecha y monto válido."); return; }
+            if (!monto || monto <= 0 || !fechaMov) { alert("⚠️ Asigne fecha y monto."); return; }
             const btn = document.getElementById('btnGuardarMov');
-            btn.disabled = true; btn.innerText = "Guardando...";
+            btn.disabled = true; btn.innerText = "⏳";
             try {
                 await addDoc(collection(db, "movimientos_cuenta"), {
-                    uid_trabajador: uidTrabajador,
-                    sucursal: sucursalActual,
-                    tipo: tipo,
-                    monto: monto,
-                    fecha_operacion: fechaMov,
-                    motivo: motivo || "Sin especificación",
+                    uid_trabajador: uidTrabajador, sucursal: sucursalActual, tipo: tipo,
+                    monto: monto, fecha_operacion: fechaMov, motivo: motivo || "Sin especificación",
                     timestamp: serverTimestamp()
                 });
                 alert(`✅ ${tipo} registrado.`);
@@ -1450,15 +1832,15 @@
                 document.getElementById('motivoMovimiento').value = "";
                 await calcularDeudaTotal();
             } catch (error) { alert("Error: " + error.message); }
-            finally { btn.disabled = false; btn.innerText = "Registrar en Cuenta Externa"; }
+            finally { btn.disabled = false; btn.innerText = "Registrar"; }
         };
 
         function renderizarTablaAcumuladosDia(acumulado) {
             const tbody = document.getElementById('body-materiales-totales-dia');
             tbody.innerHTML = "";
-            if (Object.keys(acumulado).length === 0) { tbody.innerHTML = `<tr><td colspan="3" style="text-align:center; color:#999;">Sin movimientos.</td></tr>`; return; }
+            if (Object.keys(acumulado).length === 0) { tbody.innerHTML = `<tr><td colspan="3" class="empty-state">Sin movimientos</td></tr>`; return; }
             for (const [material, datos] of Object.entries(acumulado)) {
-                tbody.innerHTML += `<tr><td><b>${material}</b></td><td style="color:#1a73e8; font-weight:bold;">${datos.kilos.toFixed(1)} kg</td><td><b>₡${datos.costo.toLocaleString('es-CR')}</b></td></tr>`;
+                tbody.innerHTML += `<tr><td style="font-weight:600;">${material}</td><td style="text-align:right; color:var(--primary); font-weight:700;">${datos.kilos.toFixed(1)} kg</td><td style="text-align:right; font-weight:700;">₡${datos.costo.toLocaleString('es-CR')}</td></tr>`;
             }
         }
     </script>
