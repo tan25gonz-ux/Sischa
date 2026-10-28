@@ -861,8 +861,9 @@
             if (!isDrawing) return;
             e.preventDefault();
             const pos = getPos(e);
-            ctx.lineWidth = 3.5; // TRAZO MÁS GRUESO
+            ctx.lineWidth = 4; // TRAZO MÁS GRUESO (era 3.5)
             ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
             ctx.strokeStyle = '#000000'; // NEGRO PURO
             ctx.lineTo(pos.x, pos.y); ctx.stroke();
             lastX = pos.x; lastY = pos.y;
@@ -1632,59 +1633,83 @@
         }
 
         // =====================================================
-        // TICKET 80MM (Firma mucho más grande)
+        // TICKET 80MM (DISEÑO CON TABLA HTML PARA QUE NO SE ROMPA)
         // =====================================================
         function generarHTMLFacturaTermica(fact, fecha) {
             const norm = (texto) => String(texto == null ? '' : texto).normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/₡/g, 'CRC');
             const fmt = (n) => (parseFloat(n) || 0).toLocaleString('es-CR');
-            const pad = (str, len, align = 'left') => {
-                str = String(str);
-                if (str.length > len) str = str.substring(0, len);
-                if (align === 'right') return str.padStart(len, ' ');
-                if (align === 'center') { const t = len - str.length; const l = Math.floor(t / 2); return ' '.repeat(l) + str + ' '.repeat(t - l); }
-                return str.padEnd(len, ' ');
-            };
             const datosSuc = datosSucursales[sucursalActual] || { nombre: sucursalActual };
-            const A = 42;
-            const LINEA = '='.repeat(A); const LINEA_D = '-'.repeat(A);
 
-            let header = LINEA + '\n';
-            if (datosSuc.nombre) header += `<span style="font-size: 16px; font-weight: 900;">${pad(norm(datosSuc.nombre), A, 'center')}</span>\n`;
-            if (datosSuc.encargado) header += pad('Encargado: ' + norm(datosSuc.encargado), A) + '\n';
-            if (datosSuc.cedula) header += pad('Cedula: ' + norm(datosSuc.cedula), A) + '\n';
-            if (datosSuc.direccion) header += pad('Dir: ' + norm(datosSuc.direccion), A) + '\n';
-            if (datosSuc.telefono) header += pad('Tel: ' + norm(datosSuc.telefono), A) + '\n';
-            if (datosSuc.correo) header += pad('Email: ' + norm(datosSuc.correo), A) + '\n';
-            header += LINEA;
+            let headerHtml = `
+                <div style="text-align:center; font-weight:900; font-size:16px;">${norm(datosSuc.nombre)}</div>
+                <div style="text-align:center; font-weight:700; font-size:12px; margin-top:2px;">Encargado: ${norm(datosSuc.encargado)}</div>
+                <div style="text-align:center; font-weight:700; font-size:12px;">Cédula: ${norm(datosSuc.cedula)}</div>
+                <div style="text-align:center; font-weight:700; font-size:12px;">Dir: ${norm(datosSuc.direccion)}</div>
+                <div style="text-align:center; font-weight:700; font-size:12px;">Tel: ${norm(datosSuc.telefono)}</div>
+                <div style="text-align:center; font-weight:700; font-size:12px;">Email: ${norm(datosSuc.correo)}</div>
+                <hr style="border: 1px solid #000; margin: 6px 0;">
+                <div style="text-align:center; font-weight:900; font-size:16px;">FACTURA #${fact.num_factura}</div>
+                <div style="text-align:center; font-weight:700; font-size:14px;">Fecha: ${norm(fecha)}</div>
+                <hr style="border: 1px dashed #000; margin: 6px 0;">
+                <div style="font-weight:700; font-size:14px;">Cliente: ${norm(fact.nombre)}</div>
+                <div style="font-weight:700; font-size:14px;">Cédula: ${norm(fact.cedula)}</div>
+                <hr style="border: 1px dashed #000; margin: 6px 0;">
+            `;
 
-            const titulo = 'FACTURA #' + fact.num_factura;
-            let info = '\n' + `<span style="font-size: 16px; font-weight: 900;">${pad(norm(titulo), A, 'center')}</span>` + '\n';
-            info += pad('Fecha: ' + norm(fecha), A) + '\n\n';
-            info += `<span style="font-weight: 900;">` + pad('Cliente: ' + norm(fact.nombre), A) + '\n' + pad('Cedula:  ' + norm(fact.cedula), A) + `</span>\n` + LINEA_D;
+            let tableHtml = `
+                <table style="width:100%; border-collapse:collapse; font-weight:700; font-size:13px; text-align:left;">
+                    <thead>
+                        <tr style="border-bottom: 1px dashed #000;">
+                            <th style="width:40%; padding-bottom:4px; text-align:left;">MATERIAL</th>
+                            <th style="width:15%; text-align:right; padding-bottom:4px;">KG</th>
+                            <th style="width:20%; text-align:right; padding-bottom:4px;">P/KG</th>
+                            <th style="width:25%; text-align:right; padding-bottom:4px;">TOTAL</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
 
-            let cab = `<span style="font-weight: 900;">` + pad('MATERIAL', 16) + pad('KG', 6, 'right') + pad('CRC/KG', 9, 'right') + pad('TOTAL', 11, 'right') + `</span>\n` + LINEA_D;
-
-            let filas = '';
             fact.detalles_materiales.forEach(m => {
-                filas += pad(norm(m.material), 16) + pad((parseFloat(m.kilos) || 0).toFixed(1), 6, 'right') + pad(fmt(m.precio_unitario), 9, 'right') + pad(fmt(m.total_pago), 11, 'right') + '\n';
+                tableHtml += `
+                    <tr>
+                        <td style="padding-top:5px; text-align:left;">${norm(m.material)}</td>
+                        <td style="text-align:right; padding-top:5px;">${(parseFloat(m.kilos) || 0).toFixed(1)}</td>
+                        <td style="text-align:right; padding-top:5px;">${fmt(m.precio_unitario)}</td>
+                        <td style="text-align:right; padding-top:5px;">${fmt(m.total_pago)}</td>
+                    </tr>
+                `;
             });
+            tableHtml += `</tbody></table>`;
 
-            let totalB = LINEA_D + '\n';
-            totalB += `<span style="font-size: 18px; font-weight: 900;">${pad('TOTAL:', 15, 'right')}${pad('CRC ' + fmt(fact.total_factura), 27, 'right')}</span>\n`;
-            totalB += LINEA + '\n';
+            let footerHtml = `
+                <hr style="border: 1px dashed #000; margin: 6px 0;">
+                <table style="width:100%; font-weight:900; font-size:16px;">
+                    <tr>
+                        <td style="text-align:left;">TOTAL:</td>
+                        <td style="text-align:right;">CRC ${fmt(fact.total_factura)}</td>
+                    </tr>
+                </table>
+                <hr style="border: 1px solid #000; margin: 6px 0;">
+                <div style="text-align:center; font-weight:900; font-size:14px; margin-top:15px;">FIRMA DEL CLIENTE</div>
+            `;
 
-            let firmaB = '\n' + `<span style="font-weight: 900;">${pad('FIRMA DEL CLIENTE', A, 'center')}</span>\n\n`;
             if (fact.firma) {
-                // Imagen de la firma ocupa casi todo el ancho del papel (72mm) y hasta 40mm de alto
-                firmaB += '<div style="text-align:center; margin:8px 0;"><img src="' + fact.firma + '" style="width:100%; max-width:72mm; max-height:40mm; object-fit:contain;"></div>\n';
+                // La firma ocupa todo el ancho posible y hasta 40mm de alto
+                footerHtml += `<div style="text-align:center; margin-top:10px;"><img src="${fact.firma}" style="width:100%; max-width:72mm; max-height:40mm; object-fit:contain;"></div>`;
             } else {
-                firmaB += '\n\n';
+                footerHtml += `<div style="height: 30mm;"></div>`;
             }
-            firmaB += '<div style="text-align:center; font-size:12px; margin-top:5px;">________________________________</div>\n';
-            firmaB += pad('(Acepto el contenido de esta factura)', A, 'center') + '\n\n' + LINEA + '\n';
-            firmaB += `<span style="font-weight: 900;">${pad('Gracias por su visita', A, 'center')}\n${pad('Vuelva pronto', A, 'center')}</span>\n\n\n`;
 
-            return `<pre style="font-family: 'Courier New', Courier, monospace; font-size: 15px; font-weight: 700; line-height: 1.35; white-space: pre-wrap; word-wrap: break-word; margin: 0; color: #000;">${header}${info}${cab}${filas}${totalB}${firmaB}</pre>`;
+            footerHtml += `
+                <div style="text-align:center; font-size:12px; margin-top:5px;">________________________________</div>
+                <div style="text-align:center; font-weight:700; font-size:12px; margin-top:5px;">(Acepto el contenido de esta factura)</div>
+                <hr style="border: 1px dashed #000; margin: 10px 0 5px 0;">
+                <div style="text-align:center; font-weight:900; font-size:14px;">Gracias por su visita</div>
+                <div style="text-align:center; font-weight:900; font-size:14px;">Vuelva pronto</div>
+                <br><br>
+            `;
+
+            return `<div style="width: 100%; font-family: 'Courier New', Courier, monospace; color: #000;">${headerHtml}${tableHtml}${footerHtml}</div>`;
         }
 
         window.imprimirFactura = (index) => {
@@ -1708,19 +1733,9 @@
                                     color: #000;
                                     -webkit-print-color-adjust: exact;
                                 }
-                                body { padding: 5mm 1mm 20mm 1mm; }
-                                pre {
-                                    font-family: 'Courier New', Courier, monospace;
-                                    font-size: 15px;
-                                    font-weight: 700;
-                                    line-height: 1.35;
-                                    white-space: pre-wrap;
-                                    word-wrap: break-word;
-                                    margin: 0;
-                                }
+                                body { padding: 5mm 2mm 20mm 2mm; }
                                 @media print {
-                                    html, body { width: 80mm; margin: 0; padding: 5mm 1mm 15mm 1mm; }
-                                    pre { font-size: 15px; font-weight: 700; }
+                                    html, body { width: 80mm; margin: 0; padding: 5mm 2mm 15mm 2mm; }
                                 }
                             </style>
                         </head>
