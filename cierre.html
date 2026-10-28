@@ -734,7 +734,6 @@
                             <tbody id="body-lista-inventario"></tbody>
                         </table>
                     </div>
-                    <button class="btn-info btn-full" style="margin-top:10px;" onclick="recalcularInventarioDesdeCero()">🔄 Recalcular Inventario</button>
                 </div>
 
                 <!-- MOVIMIENTOS -->
@@ -1028,29 +1027,6 @@
                 }, { merge: true });
             } catch (e) { console.error(e); }
         }
-
-        window.recalcularInventarioDesdeCero = async function() {
-            if (!confirm("🔄 ¿Recalcular el inventario desde cero?\n\nSe leerán TODAS las facturas de esta sucursal.")) return;
-            try {
-                const snap = await getDocs(query(collection(db, "facturas_compras"), where("sucursal", "==", sucursalActual)));
-                const nuevo = {};
-                snap.forEach(d => {
-                    const f = d.data();
-                    (f.detalles_materiales || []).forEach(m => {
-                        if (!m.material) return;
-                        nuevo[m.material] = (nuevo[m.material] || 0) + (parseFloat(m.kilos) || 0);
-                    });
-                });
-                inventarioActual = nuevo;
-                await setDoc(doc(db, "inventario", sucursalActual), {
-                    sucursal: sucursalActual,
-                    materiales: inventarioActual,
-                    ultima_actualizacion: serverTimestamp()
-                }, { merge: true });
-                renderizarInventario();
-                alert("✅ Inventario recalculado.\n\nFacturas procesadas: " + snap.size);
-            } catch (e) { alert("Error: " + e.message); }
-        };
 
         // =====================================================
         // NUMERO DE FACTURA / ULTIMO CIERRE
@@ -1804,4 +1780,90 @@
                     caja_inicio: obtenerNumeroLimpio('cajaInicioBase'), total_ventas: obtenerNumeroLimpio('ventas'),
                     total_depositos: obtenerTotalDepositos(), detalles_depositos: listaDepositosDia,
                     pago_materiales: totalAcumuladoComprasDia, gastos_facturas: obtenerTotalGastos(),
-                   
+                    detalles_gastos: listaGastosDia, cierre_mano: obtenerNumeroLimpio('cierreMano'),
+                    total_facturas: facturasDelDia.length, estado: "Pendiente", timestamp: serverTimestamp()
+                });
+                localStorage.removeItem(`facturas_${sucursalActual}`);
+                localStorage.removeItem(`gastos_${sucursalActual}`);
+                localStorage.removeItem(`depositos_${sucursalActual}`);
+                localStorage.removeItem(`cajaInicioBase_${sucursalActual}`);
+                localStorage.removeItem(`ventas_${sucursalActual}`);
+                alert("✅ Cierre enviado.");
+                location.reload();
+            } catch (e) {
+                alert("Error: " + e.message);
+                btn.disabled = false; btn.innerText = "🚀 ENVIAR CIERRE DEL DÍA";
+            }
+        }
+
+        async function guardarCierreEditado() {
+            if (!confirm("⚠️ ¿Guardar los cambios sobre el cierre pasado?")) return;
+            const btn = document.getElementById('btnEnviarTodo');
+            btn.disabled = true; btn.innerText = "⏳ Guardando...";
+            try {
+                const fechaCierre = document.getElementById('fecha').value;
+                const cajaInicio = obtenerNumeroLimpio('cajaInicioBase');
+                const ventas = obtenerNumeroLimpio('ventas');
+                const totalFacturas = totalAcumuladoComprasDia;
+                const totalGastos = obtenerTotalGastos();
+                const totalDepositos = obtenerTotalDepositos();
+                const cierreMano = (cajaInicio + totalDepositos + ventas) - (totalFacturas + totalGastos);
+
+                let eliminadasOk = 0;
+                for (const f of facturasEliminadasEnEdicion) {
+                    if (f._docId) { await deleteDoc(doc(db, "facturas_compras", f._docId)); eliminadasOk++; }
+                    await actualizarInventarioFirestore(deltaDesdeDetalles(f.detalles_materiales, -1));
+                }
+
+                await setDoc(doc(db, "revisiones_faltantes", cierreIdEnEdicion), {
+                    caja_inicio: cajaInicio, total_ventas: ventas,
+                    total_depositos: totalDepositos, detalles_depositos: listaDepositosDia,
+                    pago_materiales: totalFacturas, gastos_facturas: totalGastos,
+                    detalles_gastos: listaGastosDia, cierre_mano: cierreMano,
+                    fecha: fechaCierre, total_facturas: facturasDelDia.length,
+                    ultima_modificacion: serverTimestamp(), modificado_por: uidTrabajador
+                }, { merge: true });
+
+                await ajustarContadorFacturas();
+                alert(`✅ Cierre actualizado.\n• Eliminadas: ${eliminadasOk}\n• Total final: ${facturasDelDia.length}`);
+                limpiarEstadoEdicion();
+                location.reload();
+            } catch (e) { alert("Error: " + e.message); btn.disabled = false; btn.innerText = "💾 GUARDAR CAMBIOS"; }
+        }
+
+        // =====================================================
+        // MOVIMIENTOS
+        // =====================================================
+        window.guardarMovimientoCuenta = async function() {
+            const tipo = document.getElementById('tipoMovimiento').value;
+            const monto = obtenerNumeroLimpio('montoMovimiento');
+            const fechaMov = document.getElementById('fechaMovimiento').value;
+            const motivo = document.getElementById('motivoMovimiento').value.trim();
+            if (!monto || monto <= 0 || !fechaMov) { alert("⚠️ Asigne fecha y monto."); return; }
+            const btn = document.getElementById('btnGuardarMov');
+            btn.disabled = true; btn.innerText = "⏳";
+            try {
+                await addDoc(collection(db, "movimientos_cuenta"), {
+                    uid_trabajador: uidTrabajador, sucursal: sucursalActual, tipo: tipo,
+                    monto: monto, fecha_operacion: fechaMov, motivo: motivo || "Sin especificación",
+                    timestamp: serverTimestamp()
+                });
+                alert(`✅ ${tipo} registrado.`);
+                document.getElementById('montoMovimiento').value = "";
+                document.getElementById('motivoMovimiento').value = "";
+                await calcularDeudaTotal();
+            } catch (error) { alert("Error: " + error.message); }
+            finally { btn.disabled = false; btn.innerText = "Registrar"; }
+        };
+
+        function renderizarTablaAcumuladosDia(acumulado) {
+            const tbody = document.getElementById('body-materiales-totales-dia');
+            tbody.innerHTML = "";
+            if (Object.keys(acumulado).length === 0) { tbody.innerHTML = `<tr><td colspan="3" class="empty-state">Sin movimientos</td></tr>`; return; }
+            for (const [material, datos] of Object.entries(acumulado)) {
+                tbody.innerHTML += `<tr><td style="font-weight:600;">${material}</td><td style="text-align:right; color:var(--primary); font-weight:700;">${datos.kilos.toFixed(1)} kg</td><td style="text-align:right; font-weight:700;">₡${datos.costo.toLocaleString('es-CR')}</td></tr>`;
+            }
+        }
+    </script>
+</body>
+</html>
