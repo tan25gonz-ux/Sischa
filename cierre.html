@@ -1633,7 +1633,7 @@
         }
 
         // =====================================================
-        // TICKET 80MM (DISEÑO CORREGIDO Y AGRANDADO)
+        // TICKET 80MM (DISEÑO CENTRADO Y AGRANDADO)
         // =====================================================
         function generarHTMLFacturaTermica(fact, fecha) {
             const norm = (texto) => String(texto == null ? '' : texto).normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/₡/g, 'CRC');
@@ -1651,8 +1651,8 @@
                 <div style="text-align:center; font-weight:900; font-size:20px;">FACTURA #${fact.num_factura}</div>
                 <div style="text-align:center; font-weight:800; font-size:15px;">Fecha: ${norm(fecha)}</div>
                 <hr style="border: 1.5px dashed #000; margin: 6px 0;">
-                <div style="font-weight:800; font-size:15px;">Cliente: ${norm(fact.nombre)}</div>
-                <div style="font-weight:800; font-size:15px;">Cédula: ${norm(fact.cedula)}</div>
+                <div style="font-weight:800; font-size:15px; text-align: left;">Cliente: ${norm(fact.nombre)}</div>
+                <div style="font-weight:800; font-size:15px; text-align: left;">Cédula: ${norm(fact.cedula)}</div>
                 <hr style="border: 1.5px dashed #000; margin: 6px 0;">
             `;
 
@@ -1694,8 +1694,8 @@
             `;
 
             if (fact.firma) {
-                // La firma ocupa todo el ancho de 80mm y se adapta al alto
-                footerHtml += `<div style="text-align:center; margin-top:10px;"><img src="${fact.firma}" style="width:100%; max-width:76mm; height:auto; display:block; margin:0 auto;"></div>`;
+                // La firma se estira al 100% del contenedor
+                footerHtml += `<div style="text-align:center; margin-top:10px;"><img src="${fact.firma}" style="width:100%; height:auto; display:block; margin:0 auto;"></div>`;
             } else {
                 footerHtml += `<div style="height: 35mm;"></div>`;
             }
@@ -1709,7 +1709,7 @@
                 <br><br>
             `;
 
-            return `<div style="width: 100%; font-family: 'Arial', sans-serif; color: #000; padding: 0; margin: 0;">${headerHtml}${tableHtml}${footerHtml}</div>`;
+            return `<div style="width: 100%; text-align: center; font-family: 'Arial', sans-serif; color: #000; padding: 0; margin: 0;">${headerHtml}${tableHtml}${footerHtml}</div>`;
         }
 
         window.imprimirFactura = (index) => {
@@ -1728,15 +1728,17 @@
                                 * { margin: 0; padding: 0; box-sizing: border-box; }
                                 html, body {
                                     width: 80mm;
+                                    margin: 0 auto; /* CENTRA EL BLOQUE */
                                     background: white;
                                     font-family: 'Arial', sans-serif;
                                     color: #000;
                                     -webkit-print-color-adjust: exact;
+                                    text-align: center; /* Centra el contenido */
                                 }
-                                /* Quitamos casi todos los márgenes para que use todo el papel */
-                                body { padding: 4mm 1mm 15mm 1mm; }
+                                /* Márgenes simétricos para que no se corte a la derecha */
+                                body { padding: 4mm 2mm 15mm 2mm; }
                                 @media print {
-                                    html, body { width: 80mm; margin: 0; padding: 4mm 1mm 10mm 1mm; }
+                                    html, body { width: 80mm; margin: 0 auto; padding: 4mm 2mm 10mm 2mm; }
                                 }
                             </style>
                         </head>
