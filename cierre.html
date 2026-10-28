@@ -861,7 +861,9 @@
             if (!isDrawing) return;
             e.preventDefault();
             const pos = getPos(e);
-            ctx.lineWidth = 2; ctx.lineCap = 'round'; ctx.strokeStyle = '#1e293b';
+            ctx.lineWidth = 3.5; // TRAZO MÁS GRUESO
+            ctx.lineCap = 'round';
+            ctx.strokeStyle = '#000000'; // NEGRO PURO
             ctx.lineTo(pos.x, pos.y); ctx.stroke();
             lastX = pos.x; lastY = pos.y;
         }
@@ -1573,7 +1575,7 @@
         };
 
         // =====================================================
-        // FACTURA A4
+        // FACTURA A4 (Firma más grande)
         // =====================================================
         function generarHTMLFactura(fact, fecha) {
             const vencimiento = new Date(); vencimiento.setDate(vencimiento.getDate() + 15);
@@ -1586,7 +1588,7 @@
                     <td style="padding:8px 10px; border-bottom:1px solid #e2e8f0; text-align:right; font-size:13px; font-weight:600;">₡${m.total_pago.toLocaleString('es-CR')}</td>
                 </tr>`).join('');
             const firmaHTML = fact.firma ?
-                `<div style="margin-top:25px; border-top:2px solid #2b6cb0; padding-top:15px; text-align:center;"><p style="font-weight:bold; font-size:14px;">Firma del Cliente</p><img src="${fact.firma}" style="max-width:180px; max-height:70px; border:1px solid #cbd5e1; border-radius:6px; padding:4px;"></div>` :
+                `<div style="margin-top:25px; border-top:2px solid #2b6cb0; padding-top:15px; text-align:center;"><p style="font-weight:bold; font-size:14px;">Firma del Cliente</p><img src="${fact.firma}" style="width:100%; max-width:300px; max-height:120px; object-fit:contain; border:1px solid #cbd5e1; border-radius:6px; padding:4px;"></div>` :
                 `<div style="margin-top:25px; border-top:2px solid #2b6cb0; padding-top:15px; text-align:center;"><p style="font-weight:bold; font-size:14px;">Firma del Cliente</p><div style="height:60px; border-bottom:1px solid #333; width:220px; margin:0 auto;"></div></div>`;
             let lineasSuc = '';
             if (datosSuc.nombre) lineasSuc += `<h1 style="font-size:22px; margin:0; color:#2b6cb0;">📍 ${datosSuc.nombre}</h1>`;
@@ -1630,7 +1632,7 @@
         }
 
         // =====================================================
-        // TICKET 80MM (TAMAÑO AUMENTADO Y EN NEGRITA)
+        // TICKET 80MM (Firma mucho más grande)
         // =====================================================
         function generarHTMLFacturaTermica(fact, fecha) {
             const norm = (texto) => String(texto == null ? '' : texto).normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/₡/g, 'CRC');
@@ -1672,8 +1674,12 @@
             totalB += LINEA + '\n';
 
             let firmaB = '\n' + `<span style="font-weight: 900;">${pad('FIRMA DEL CLIENTE', A, 'center')}</span>\n\n`;
-            if (fact.firma) firmaB += '<div style="text-align:center; margin:4px 0;"><img src="' + fact.firma + '" style="max-width:65mm; max-height:25mm;"></div>\n';
-            else firmaB += '\n\n';
+            if (fact.firma) {
+                // Imagen de la firma ocupa casi todo el ancho del papel (72mm) y hasta 40mm de alto
+                firmaB += '<div style="text-align:center; margin:8px 0;"><img src="' + fact.firma + '" style="width:100%; max-width:72mm; max-height:40mm; object-fit:contain;"></div>\n';
+            } else {
+                firmaB += '\n\n';
+            }
             firmaB += '<div style="text-align:center; font-size:12px; margin-top:5px;">________________________________</div>\n';
             firmaB += pad('(Acepto el contenido de esta factura)', A, 'center') + '\n\n' + LINEA + '\n';
             firmaB += `<span style="font-weight: 900;">${pad('Gracias por su visita', A, 'center')}\n${pad('Vuelva pronto', A, 'center')}</span>\n\n\n`;
