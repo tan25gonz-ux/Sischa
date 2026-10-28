@@ -809,7 +809,6 @@
 
         let inventarioActual = {};
 
-        // Helper: obtener fecha de hoy en formato YYYY-MM-DD (hora local)
         function obtenerFechaHoy() {
             const d = new Date();
             const yyyy = d.getFullYear();
@@ -940,7 +939,6 @@
                 document.getElementById('sucursal-txt').innerText = sucursalActual;
                 document.getElementById('sucursal-txt2').innerText = sucursalActual;
 
-                // ✅ AUTO-LLENAR FECHA CON LA DEL SISTEMA (editable)
                 document.getElementById('fecha').value = obtenerFechaHoy();
                 document.getElementById('fechaMovimiento').value = obtenerFechaHoy();
 
@@ -1656,7 +1654,7 @@
         }
 
         // =====================================================
-        // TICKET 80MM
+        // TICKET 80MM (TAMAÑO AUMENTADO Y EN NEGRITA)
         // =====================================================
         function generarHTMLFacturaTermica(fact, fecha) {
             const norm = (texto) => String(texto == null ? '' : texto).normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/₡/g, 'CRC');
@@ -1671,30 +1669,40 @@
             const datosSuc = datosSucursales[sucursalActual] || { nombre: sucursalActual };
             const A = 42;
             const LINEA = '='.repeat(A); const LINEA_D = '-'.repeat(A);
+
             let header = LINEA + '\n';
-            if (datosSuc.nombre) header += pad(norm(datosSuc.nombre), A, 'center') + '\n';
+            if (datosSuc.nombre) header += `<span style="font-size: 16px; font-weight: 900;">${pad(norm(datosSuc.nombre), A, 'center')}</span>\n`;
             if (datosSuc.encargado) header += pad('Encargado: ' + norm(datosSuc.encargado), A) + '\n';
             if (datosSuc.cedula) header += pad('Cedula: ' + norm(datosSuc.cedula), A) + '\n';
             if (datosSuc.direccion) header += pad('Dir: ' + norm(datosSuc.direccion), A) + '\n';
             if (datosSuc.telefono) header += pad('Tel: ' + norm(datosSuc.telefono), A) + '\n';
             if (datosSuc.correo) header += pad('Email: ' + norm(datosSuc.correo), A) + '\n';
             header += LINEA;
+
             const titulo = 'FACTURA #' + fact.num_factura;
-            let info = '\n' + pad(norm(titulo), A, 'center') + '\n' + pad('Fecha: ' + norm(fecha), A) + '\n\n';
-            info += pad('Cliente: ' + norm(fact.nombre), A) + '\n' + pad('Cedula:  ' + norm(fact.cedula), A) + '\n' + LINEA_D;
-            let cab = pad('MATERIAL', 16) + pad('KG', 6, 'right') + pad('CRC/KG', 9, 'right') + pad('TOTAL', 11, 'right') + '\n' + LINEA_D;
+            let info = '\n' + `<span style="font-size: 16px; font-weight: 900;">${pad(norm(titulo), A, 'center')}</span>` + '\n';
+            info += pad('Fecha: ' + norm(fecha), A) + '\n\n';
+            info += `<span style="font-weight: 900;">` + pad('Cliente: ' + norm(fact.nombre), A) + '\n' + pad('Cedula:  ' + norm(fact.cedula), A) + `</span>\n` + LINEA_D;
+
+            let cab = `<span style="font-weight: 900;">` + pad('MATERIAL', 16) + pad('KG', 6, 'right') + pad('CRC/KG', 9, 'right') + pad('TOTAL', 11, 'right') + `</span>\n` + LINEA_D;
+
             let filas = '';
             fact.detalles_materiales.forEach(m => {
                 filas += pad(norm(m.material), 16) + pad((parseFloat(m.kilos) || 0).toFixed(1), 6, 'right') + pad(fmt(m.precio_unitario), 9, 'right') + pad(fmt(m.total_pago), 11, 'right') + '\n';
             });
-            let totalB = LINEA_D + '\n' + pad('TOTAL:', 31, 'right') + pad('CRC ' + fmt(fact.total_factura), 11, 'right') + '\n' + LINEA + '\n';
-            let firmaB = '\n' + pad('FIRMA DEL CLIENTE', A, 'center') + '\n\n';
-            if (fact.firma) firmaB += '<div style="text-align:center; margin:4px 0;"><img src="' + fact.firma + '" style="max-width:60mm; max-height:20mm;"></div>\n';
+
+            let totalB = LINEA_D + '\n';
+            totalB += `<span style="font-size: 18px; font-weight: 900;">${pad('TOTAL:', 15, 'right')}${pad('CRC ' + fmt(fact.total_factura), 27, 'right')}</span>\n`;
+            totalB += LINEA + '\n';
+
+            let firmaB = '\n' + `<span style="font-weight: 900;">${pad('FIRMA DEL CLIENTE', A, 'center')}</span>\n\n`;
+            if (fact.firma) firmaB += '<div style="text-align:center; margin:4px 0;"><img src="' + fact.firma + '" style="max-width:65mm; max-height:25mm;"></div>\n';
             else firmaB += '\n\n';
-            firmaB += '<div style="text-align:center; font-size:10px;">________________________________</div>\n';
+            firmaB += '<div style="text-align:center; font-size:12px; margin-top:5px;">________________________________</div>\n';
             firmaB += pad('(Acepto el contenido de esta factura)', A, 'center') + '\n\n' + LINEA + '\n';
-            firmaB += pad('Gracias por su visita', A, 'center') + '\n' + pad('Vuelva pronto', A, 'center') + '\n\n\n';
-            return `<pre style="font-family:'Courier New',monospace; font-size:11px; line-height:1.25; white-space:pre-wrap; margin:0;">${header}${info}${cab}${filas}${totalB}${firmaB}</pre>`;
+            firmaB += `<span style="font-weight: 900;">${pad('Gracias por su visita', A, 'center')}\n${pad('Vuelva pronto', A, 'center')}</span>\n\n\n`;
+
+            return `<pre style="font-family: 'Courier New', Courier, monospace; font-size: 15px; font-weight: 700; line-height: 1.35; white-space: pre-wrap; word-wrap: break-word; margin: 0; color: #000;">${header}${info}${cab}${filas}${totalB}${firmaB}</pre>`;
         }
 
         window.imprimirFactura = (index) => {
@@ -1702,9 +1710,41 @@
             if (!fact) return;
             const fecha = document.getElementById('fecha').value || new Date().toLocaleDateString('es-CR');
             const html = generarHTMLFacturaTermica(fact, fecha);
-            const v = window.open('', '_blank', 'width=380,height=700');
+            const v = window.open('', '_blank', 'width=400,height=800');
             if (v) {
-                v.document.write(`<html><head><title>Ticket #${fact.num_factura}</title><style>@page{size:80mm auto;margin:0;}*{margin:0;padding:0;box-sizing:border-box;}html,body{width:80mm;background:white;font-family:'Courier New',monospace;}body{padding:2mm 3mm 20mm 3mm;}</style></head><body>${html}</body></html>`);
+                v.document.write(`
+                    <html>
+                        <head>
+                            <title>Ticket #${fact.num_factura}</title>
+                            <style>
+                                @page { size: 80mm auto; margin: 0; }
+                                * { margin: 0; padding: 0; box-sizing: border-box; }
+                                html, body {
+                                    width: 80mm;
+                                    background: white;
+                                    font-family: 'Courier New', Courier, monospace;
+                                    color: #000;
+                                    -webkit-print-color-adjust: exact;
+                                }
+                                body { padding: 5mm 1mm 20mm 1mm; }
+                                pre {
+                                    font-family: 'Courier New', Courier, monospace;
+                                    font-size: 15px;
+                                    font-weight: 700;
+                                    line-height: 1.35;
+                                    white-space: pre-wrap;
+                                    word-wrap: break-word;
+                                    margin: 0;
+                                }
+                                @media print {
+                                    html, body { width: 80mm; margin: 0; padding: 5mm 1mm 15mm 1mm; }
+                                    pre { font-size: 15px; font-weight: 700; }
+                                }
+                            </style>
+                        </head>
+                        <body>${html}</body>
+                    </html>
+                `);
                 v.document.close(); v.focus();
                 setTimeout(() => v.print(), 600);
             } else alert('Permita ventanas emergentes.');
@@ -1764,90 +1804,4 @@
                     caja_inicio: obtenerNumeroLimpio('cajaInicioBase'), total_ventas: obtenerNumeroLimpio('ventas'),
                     total_depositos: obtenerTotalDepositos(), detalles_depositos: listaDepositosDia,
                     pago_materiales: totalAcumuladoComprasDia, gastos_facturas: obtenerTotalGastos(),
-                    detalles_gastos: listaGastosDia, cierre_mano: obtenerNumeroLimpio('cierreMano'),
-                    total_facturas: facturasDelDia.length, estado: "Pendiente", timestamp: serverTimestamp()
-                });
-                localStorage.removeItem(`facturas_${sucursalActual}`);
-                localStorage.removeItem(`gastos_${sucursalActual}`);
-                localStorage.removeItem(`depositos_${sucursalActual}`);
-                localStorage.removeItem(`cajaInicioBase_${sucursalActual}`);
-                localStorage.removeItem(`ventas_${sucursalActual}`);
-                alert("✅ Cierre enviado.");
-                location.reload();
-            } catch (e) {
-                alert("Error: " + e.message);
-                btn.disabled = false; btn.innerText = "🚀 ENVIAR CIERRE DEL DÍA";
-            }
-        }
-
-        async function guardarCierreEditado() {
-            if (!confirm("⚠️ ¿Guardar los cambios sobre el cierre pasado?")) return;
-            const btn = document.getElementById('btnEnviarTodo');
-            btn.disabled = true; btn.innerText = "⏳ Guardando...";
-            try {
-                const fechaCierre = document.getElementById('fecha').value;
-                const cajaInicio = obtenerNumeroLimpio('cajaInicioBase');
-                const ventas = obtenerNumeroLimpio('ventas');
-                const totalFacturas = totalAcumuladoComprasDia;
-                const totalGastos = obtenerTotalGastos();
-                const totalDepositos = obtenerTotalDepositos();
-                const cierreMano = (cajaInicio + totalDepositos + ventas) - (totalFacturas + totalGastos);
-
-                let eliminadasOk = 0;
-                for (const f of facturasEliminadasEnEdicion) {
-                    if (f._docId) { await deleteDoc(doc(db, "facturas_compras", f._docId)); eliminadasOk++; }
-                    await actualizarInventarioFirestore(deltaDesdeDetalles(f.detalles_materiales, -1));
-                }
-
-                await setDoc(doc(db, "revisiones_faltantes", cierreIdEnEdicion), {
-                    caja_inicio: cajaInicio, total_ventas: ventas,
-                    total_depositos: totalDepositos, detalles_depositos: listaDepositosDia,
-                    pago_materiales: totalFacturas, gastos_facturas: totalGastos,
-                    detalles_gastos: listaGastosDia, cierre_mano: cierreMano,
-                    fecha: fechaCierre, total_facturas: facturasDelDia.length,
-                    ultima_modificacion: serverTimestamp(), modificado_por: uidTrabajador
-                }, { merge: true });
-
-                await ajustarContadorFacturas();
-                alert(`✅ Cierre actualizado.\n• Eliminadas: ${eliminadasOk}\n• Total final: ${facturasDelDia.length}`);
-                limpiarEstadoEdicion();
-                location.reload();
-            } catch (e) { alert("Error: " + e.message); btn.disabled = false; btn.innerText = "💾 GUARDAR CAMBIOS"; }
-        }
-
-        // =====================================================
-        // MOVIMIENTOS
-        // =====================================================
-        window.guardarMovimientoCuenta = async function() {
-            const tipo = document.getElementById('tipoMovimiento').value;
-            const monto = obtenerNumeroLimpio('montoMovimiento');
-            const fechaMov = document.getElementById('fechaMovimiento').value;
-            const motivo = document.getElementById('motivoMovimiento').value.trim();
-            if (!monto || monto <= 0 || !fechaMov) { alert("⚠️ Asigne fecha y monto."); return; }
-            const btn = document.getElementById('btnGuardarMov');
-            btn.disabled = true; btn.innerText = "⏳";
-            try {
-                await addDoc(collection(db, "movimientos_cuenta"), {
-                    uid_trabajador: uidTrabajador, sucursal: sucursalActual, tipo: tipo,
-                    monto: monto, fecha_operacion: fechaMov, motivo: motivo || "Sin especificación",
-                    timestamp: serverTimestamp()
-                });
-                alert(`✅ ${tipo} registrado.`);
-                document.getElementById('montoMovimiento').value = "";
-                document.getElementById('motivoMovimiento').value = "";
-                await calcularDeudaTotal();
-            } catch (error) { alert("Error: " + error.message); }
-            finally { btn.disabled = false; btn.innerText = "Registrar"; }
-        };
-
-        function renderizarTablaAcumuladosDia(acumulado) {
-            const tbody = document.getElementById('body-materiales-totales-dia');
-            tbody.innerHTML = "";
-            if (Object.keys(acumulado).length === 0) { tbody.innerHTML = `<tr><td colspan="3" class="empty-state">Sin movimientos</td></tr>`; return; }
-            for (const [material, datos] of Object.entries(acumulado)) {
-                tbody.innerHTML += `<tr><td style="font-weight:600;">${material}</td><td style="text-align:right; color:var(--primary); font-weight:700;">${datos.kilos.toFixed(1)} kg</td><td style="text-align:right; font-weight:700;">₡${datos.costo.toLocaleString('es-CR')}</td></tr>`;
-            }
-        }
-    </script>
-</body>
-</html>
+                   
