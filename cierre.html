@@ -504,7 +504,11 @@
                         </div>
                         <div>
                             <label># Número de Factura</label>
-                            <input type="text" id="numFacturaCliente" readonly style="border-color: var(--primary); font-weight: 700; background: var(--primary-light);">
+                            <!-- SOLUCIÓN: Se borra automáticamente al enfocar para evitar números pegados -->
+                            <input type="text" id="numFacturaCliente" 
+                                   onfocus="this.dataset.old = this.value; this.value = '';" 
+                                   onblur="if(!this.value) this.value = this.dataset.old;" 
+                                   style="border-color: var(--primary); font-weight: 700; background: var(--primary-light);">
                         </div>
                     </div>
 
