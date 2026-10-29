@@ -760,7 +760,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-        import { getFirestore, doc, getDoc, setDoc, collection, addDoc, deleteDoc, writeBatch, serverTimestamp, query, where, getDocs, orderBy, limit, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        import { getFirestore, doc, getDoc, setDoc, updateDoc, collection, addDoc, deleteDoc, writeBatch, serverTimestamp, query, where, getDocs, orderBy, limit, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyCi409CkmXBbun7-POejbVaIiThK2nZ1JY",
@@ -796,7 +796,7 @@
         let uidTrabajador = null;
         let totalAcumuladoComprasDia = 0;
         let sucursalActual = "Desconocida";
-        let inyeccionesAdmin = 0; // Variable global para guardar los envíos del admin
+        let inyeccionesAdmin = 0; 
 
         let temporizadorFirestore = null;
 
@@ -966,9 +966,7 @@
                 actualizarTablaDepositos();
                 setTimeout(() => { initFirma(); detectarTrazo(); actualizarBadgeFirma(); }, 100);
 
-                // ----------------------------------------------------
                 // ESCUCHADOR EN TIEMPO REAL PARA EL DINERO DEL ADMIN
-                // ----------------------------------------------------
                 onSnapshot(doc(db, "cajas_en_vivo", sucursalActual), (docSnap) => {
                     if (docSnap.exists()) {
                         const data = docSnap.data();
@@ -978,6 +976,9 @@
                                 inyeccionesAdmin = nuevoTotal;
                                 calcularCajaDinamica(); // Recalcula y actualiza la pantalla al instante
                             }
+                        } else if (!data.admin_envios && inyeccionesAdmin !== 0) {
+                            inyeccionesAdmin = 0;
+                            calcularCajaDinamica();
                         }
                     }
                 });
@@ -1436,7 +1437,6 @@
                 total += dep.monto;
                 tbody.innerHTML += `<tr><td>${dep.descripcion}</td><td style="text-align:right; color: var(--success-dark); font-weight:700;">+₡${dep.monto.toLocaleString('es-CR')}</td><td style="text-align:center;"><button onclick="eliminarDepositoLista(${idx})" class="btn-danger btn-xs">✕</button></td></tr>`;
             });
-            // El total en pantalla se actualizará en calcularCajaDinamica porque suma inyeccionesAdmin
             calcularCajaDinamica();
         }
 
@@ -1489,7 +1489,6 @@
             const ventas = obtenerNumeroLimpio('ventas');
             const depositosLocales = obtenerTotalDepositos();
             
-            // ✅ SUMAMOS LAS INYECCIONES DEL ADMIN A LOS DEPÓSITOS TOTALES
             const depositosTotales = depositosLocales + inyeccionesAdmin; 
             
             const pagoFacturas = totalAcumuladoComprasDia;
@@ -1499,7 +1498,6 @@
             document.getElementById('cajaDisponibleActual').value = "₡" + disponibleCaja.toLocaleString('es-CR');
             document.getElementById('cierreMano').value = "₡" + disponibleCaja.toLocaleString('es-CR');
             
-            // ✅ MOSTRAMOS EL TOTAL COMBINADO EN EL INPUT DE DEPÓSITOS
             document.getElementById('depositosRecibidosTxt').value = "₡" + depositosTotales.toLocaleString('es-CR');
             
             localStorage.setItem(`cajaInicioBase_${sucursalActual}`, document.getElementById('cajaInicioBase').value);
@@ -1514,7 +1512,6 @@
                 await setDoc(doc(db, "cajas_en_vivo", sucursalActual), {
                     sucursal: sucursalActual, 
                     caja_inicio: obtenerNumeroLimpio('cajaInicioBase'),
-                    // ✅ GUARDAMOS EL TOTAL COMBINADO
                     depositos: obtenerTotalDepositos() + inyeccionesAdmin, 
                     ventas: obtenerNumeroLimpio('ventas'),
                     compras_facturas: totalAcumuladoComprasDia, 
@@ -1837,6 +1834,14 @@
                     detalles_gastos: listaGastosDia, cierre_mano: obtenerNumeroLimpio('cierreMano'),
                     total_facturas: facturasDelDia.length, estado: "Pendiente", timestamp: serverTimestamp()
                 });
+
+                // ✅ LIMPIAR ENVÍOS DEL ADMIN AL CERRAR EL DÍA
+                await updateDoc(doc(db, "cajas_en_vivo", sucursalActual), {
+                    admin_envios: [],
+                    depositos: 0,
+                    caja_disponible: 0
+                });
+
                 localStorage.removeItem(`facturas_${sucursalActual}`);
                 localStorage.removeItem(`gastos_${sucursalActual}`);
                 localStorage.removeItem(`depositos_${sucursalActual}`);
