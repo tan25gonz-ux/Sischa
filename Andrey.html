@@ -34,7 +34,6 @@
 
         .app-container { max-width: 1200px; margin: 0 auto; }
 
-        /* HEADER */
         .header-panel {
             background: linear-gradient(135deg, var(--primary) 0%, #8b5cf6 100%);
             padding: 24px 32px;
@@ -49,14 +48,12 @@
         .header-panel h2 { font-size: 24px; font-weight: 800; margin: 0; }
         .header-panel small { font-size: 14px; opacity: 0.9; }
 
-        /* GRID */
         .grid-cajas {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
             gap: 20px;
         }
 
-        /* CARD SUCURSAL */
         .card-caja {
             background: white;
             padding: 24px;
@@ -122,10 +119,10 @@
         .monto-pos { color: #059669; font-weight: 800; }
         .monto-neg { color: #dc2626; font-weight: 800; }
 
-        /* BOTONERA */
         .actions-box {
             margin-top: 20px;
             display: flex;
+            flex-direction: column;
             gap: 10px;
         }
         .btn-inyectar {
@@ -137,7 +134,6 @@
             font-size: 14px;
             font-weight: 700;
             cursor: pointer;
-            flex: 1;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -146,6 +142,18 @@
             box-shadow: 0 4px 10px -2px rgba(16, 185, 129, 0.4);
         }
         .btn-inyectar:hover { transform: translateY(-1px); box-shadow: 0 6px 15px -2px rgba(16, 185, 129, 0.5); }
+
+        .lista-envios { margin-top: 10px; }
+        .envio-item {
+            display: flex; justify-content: space-between; align-items: center;
+            background: var(--gray-50); border: 1px solid var(--gray-200);
+            padding: 8px 12px; border-radius: 8px; margin-bottom: 6px;
+            font-size: 12px; font-weight: 600;
+        }
+        .btn-eliminar-envio {
+            background: #fee2e2; color: #dc2626; border: none;
+            padding: 4px 8px; border-radius: 6px; cursor: pointer; font-weight: 800;
+        }
 
         /* MODAL */
         .modal-overlay {
@@ -206,7 +214,7 @@
         <div class="modal-box">
             <h3>💸 Inyectar Dinero</h3>
             <p style="font-size:13px; color:var(--gray-600); margin-bottom:16px;">
-                Enviar dinero a la sucursal <b id="modal-sucursal-nombre"></b>. Se sumará como "Plata Agregada".
+                Enviar dinero a la sucursal <b id="modal-sucursal-nombre"></b>.
             </p>
             
             <label>Monto a enviar (₡)</label>
@@ -224,7 +232,7 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getFirestore, collection, onSnapshot, doc, updateDoc, increment, arrayUnion } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        import { getFirestore, collection, onSnapshot, doc, updateDoc, increment, arrayUnion, getDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyCi409CkmXBbun7-POejbVaIiThK2nZ1JY",
@@ -254,6 +262,20 @@
             snapshot.forEach((documento) => {
                 const data = documento.data();
                 const hora = data.ultima_actualizacion ? new Date(data.ultima_actualizacion.toDate()).toLocaleTimeString() : 'En espera';
+                const envios = data.admin_envios || [];
+
+                // Generar la lista de envíos realizados
+                let enviosHtml = '';
+                if (envios.length > 0) {
+                    envios.forEach((envio, index) => {
+                        enviosHtml += `
+                            <div class="envio-item">
+                                <span>${envio.motivo}: ₡${(envio.monto||0).toLocaleString('es-CR')}</span>
+                                <button onclick="eliminarEnvioAdmin('${data.sucursal}', ${index}, ${envio.monto})" class="btn-eliminar-envio">✕</button>
+                            </div>
+                        `;
+                    });
+                }
 
                 contenedor.innerHTML += `
                     <div class="card-caja">
@@ -292,6 +314,7 @@
                             <button class="btn-inyectar" onclick="abrirModal('${data.sucursal}')">
                                 💸 Inyectar Dinero
                             </button>
+                            ${enviosHtml ? `<div class="lista-envios"><label style="margin-top:10px; font-size:11px; text-transform:uppercase;">Envíos Recientes:</label>${enviosHtml}</div>` : ''}
                         </div>
                     </div>
                 `;
@@ -334,7 +357,6 @@
             try {
                 const cajaRef = doc(db, "cajas_en_vivo", sucursalSeleccionada);
                 
-                // Actualizamos Firebase sumando el dinero a los depósitos
                 await updateDoc(cajaRef, {
                     depositos: increment(montoAInyectar),
                     caja_disponible: increment(montoAInyectar),
@@ -345,13 +367,42 @@
                     })
                 });
 
-                alert(`✅ Se enviaron ₡${montoAInyectar.toLocaleString('es-CR')} a la sucursal ${sucursalSeleccionada}.\n\n(La sucursal debe recargar o sincronizar para verlo reflejado).`);
+                alert(`✅ Se enviaron ₡${montoAInyectar.toLocaleString('es-CR')} a la sucursal ${sucursalSeleccionada}.`);
                 cerrarModal();
             } catch (error) {
                 console.error(error);
                 alert("❌ Error al inyectar dinero: " + error.message);
             } finally {
                 btn.disabled = false; btn.innerText = "💾 Enviar Dinero";
+            }
+        };
+
+        // --- ELIMINAR UN ENVÍO EQUIVOCADO ---
+        window.eliminarEnvioAdmin = async function(sucursal, index, monto) {
+            if (!confirm(`¿Estás seguro de eliminar este envío de ₡${monto.toLocaleString('es-CR')}?\n\nSe restará de la caja de la sucursal.`)) return;
+            
+            try {
+                const cajaRef = doc(db, "cajas_en_vivo", sucursal);
+                const snap = await getDoc(cajaRef);
+                
+                if (snap.exists()) {
+                    const data = snap.data();
+                    let envios = data.admin_envios || [];
+                    
+                    // Quitar el envío de la lista
+                    envios.splice(index, 1);
+                    
+                    // Actualizar Firebase restando el dinero
+                    await updateDoc(cajaRef, {
+                        admin_envios: envios,
+                        depositos: increment(-monto),
+                        caja_disponible: increment(-monto)
+                    });
+                    alert("✅ Envío eliminado correctamente.");
+                }
+            } catch (error) {
+                console.error(error);
+                alert("❌ Error al eliminar: " + error.message);
             }
         };
     </script>
