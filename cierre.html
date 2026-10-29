@@ -784,7 +784,6 @@
             "BOLSA TRANSPAR.", "BOLSA COLOR", "VIDRIO", "CABLE ELECTRICO", "OTROS"
         ];
 
-        // ✅ DATOS DE SUCURSALES ACTUALIZADOS (Teléfonos invertidos en Perez)
         const datosSucursales = {
             "Paraiso": { 
                 nombre: "Grupo Ingeniería Verde", 
@@ -797,7 +796,7 @@
             "Perez": { 
                 nombre: "LA CAMPINA - Centro de Acopio y Reciclaje", 
                 encargado: "MOISÉS COTO ROJAS", 
-                telefono: "8964-7726 / 8342-1610", // ✅ Números invertidos
+                telefono: "8964-7726 / 8342-1610",
                 direccion: "Pérez Zeledón - Repunta - San José - Costa Rica",
                 correo: "" 
             },
@@ -1079,43 +1078,26 @@
             try {
                 const snap = await getDoc(doc(db, "contadores_facturas", sucursalActual));
                 const ultimo = snap.exists() ? (parseInt(snap.data().ultimo_numero) || 0) : 0;
-                // Si por error el contador en Firebase tiene un número gigante (ej. 117380489), lo reseteamos
+                
+                // Si el número es mayor a 10000, lo reseteamos a 1
                 const numSeguro = ultimo > 10000 ? 1 : ultimo + 1;
                 document.getElementById('numFacturaCliente').value = numSeguro;
             } catch (error) { console.error(error); }
         }
 
-        async function ajustarContadorFacturas() {
+        async function ajustarContadorFacturas(numeroBorrado) {
             try {
-                const q = query(
-                    collection(db, "facturas_compras"),
-                    where("sucursal", "==", sucursalActual)
-                );
-                const snap = await getDocs(q);
-                let maxNum = 0;
-                snap.forEach(d => {
-                    const n = parseInt(d.data().num_factura) || 0;
-                    if (n > maxNum && n < 10000) maxNum = n; // Ignoramos números corruptos
-                });
-                
+                // ✅ SOLUCIÓN DEFINITIVA: En lugar de buscar en toda la BD, solo restamos 1 al número que se borró
+                let numRestar = parseInt(numeroBorrado) - 1;
+                if (isNaN(numRestar) || numRestar < 0) numRestar = 0;
+
                 await setDoc(doc(db, "contadores_facturas", sucursalActual), {
-                    ultimo_numero: maxNum
+                    ultimo_numero: numRestar
                 }, { merge: true });
                 
-                // Forzamos la actualización del campo visual
-                document.getElementById('numFacturaCliente').value = maxNum + 1;
+                document.getElementById('numFacturaCliente').value = numRestar + 1;
             } catch (e) {
                 console.error("Error ajustando contador:", e);
-                const maxLocal = facturasDelDia.reduce((max, fac) => {
-                    const n = parseInt(fac.num_factura) || 0;
-                    return (n > max && n < 10000) ? n : max;
-                }, 0);
-                try {
-                    await setDoc(doc(db, "contadores_facturas", sucursalActual), {
-                        ultimo_numero: maxLocal
-                    }, { merge: true });
-                } catch (_) {}
-                document.getElementById('numFacturaCliente').value = maxLocal + 1;
             }
         }
 
@@ -1629,8 +1611,10 @@
                 } catch (e) { alert("Error: " + e.message); return; }
                 facturasDelDia.splice(index, 1);
                 localStorage.setItem(`facturas_${sucursalActual}`, JSON.stringify(facturasDelDia));
-                // Ajustamos contador en base a lo que queda
-                await ajustarContadorFacturas();
+                
+                // ✅ AQUÍ SE LLAMA A LA NUEVA FUNCIÓN QUE SOLO RESTA 1 AL NÚMERO BORRADO
+                await ajustarContadorFacturas(f.num_factura);
+                
                 actualizarTablaGeneralDia();
             }
         };
@@ -1659,7 +1643,6 @@
             if (datosSuc.telefono) lineasSuc += `<p style="margin:2px 0 0; font-size:12px;">Tel: ${datosSuc.telefono}</p>`;
             if (datosSuc.correo) lineasSuc += `<p style="margin:2px 0 0; font-size:12px;">Email: ${datosSuc.correo}</p>`;
             
-            // ✅ TEXTO UNIFICADO EN A4 (Sin rayita intermedia)
             const firmaDuenoHTML = `
                 <div style="margin-top:25px; text-align:center;">
                     <p style="font-weight:bold; font-size:14px; margin-bottom:15px;">Firma dueño de material entregado</p>
@@ -1772,7 +1755,6 @@
                 <div style="text-align:center; font-size:14px; margin-top:5px;">________________________________</div>
                 <div style="text-align:center; font-weight:700; font-size:13px; margin-top:5px;">(Acepto el contenido de esta factura)</div>
                 
-                <!-- ✅ TEXTO UNIFICADO EN TICKET (Sin rayita intermedia) -->
                 <div style="text-align:center; font-weight:900; font-size:15px; margin-top:25px;">FIRMA DUEÑO DE MATERIAL ENTREGADO</div>
                 <div style="text-align:center; font-weight:700; font-size:13px; margin-top:5px;">El material entregado es de su propiedad</div>
                 
@@ -1928,7 +1910,6 @@
                     ultima_modificacion: serverTimestamp(), modificado_por: uidTrabajador
                 }, { merge: true });
 
-                await ajustarContadorFacturas();
                 alert(`✅ Cierre actualizado.\n• Eliminadas: ${eliminadasOk}\n• Total final: ${facturasDelDia.length}`);
                 limpiarEstadoEdicion();
                 location.reload();
