@@ -784,7 +784,7 @@
             "BOLSA TRANSPAR.", "BOLSA COLOR", "VIDRIO", "CABLE ELECTRICO", "OTROS"
         ];
 
-        // ✅ DATOS DE SUCURSALES ACTUALIZADOS
+        // ✅ DATOS DE SUCURSALES ACTUALIZADOS (Teléfonos invertidos en Perez)
         const datosSucursales = {
             "Paraiso": { 
                 nombre: "Grupo Ingeniería Verde", 
@@ -797,9 +797,9 @@
             "Perez": { 
                 nombre: "LA CAMPINA - Centro de Acopio y Reciclaje", 
                 encargado: "MOISÉS COTO ROJAS", 
-                telefono: "8342-1610/8964-7726", // ✅ Números actualizados
+                telefono: "8964-7726 / 8342-1610", // ✅ Números invertidos
                 direccion: "Pérez Zeledón - Repunta - San José - Costa Rica",
-                correo: "" // ✅ Sin correo
+                correo: "" 
             },
             "Cartago": { 
                 nombre: "Centro de reciclaje el Guarco", 
@@ -1659,12 +1659,11 @@
             if (datosSuc.telefono) lineasSuc += `<p style="margin:2px 0 0; font-size:12px;">Tel: ${datosSuc.telefono}</p>`;
             if (datosSuc.correo) lineasSuc += `<p style="margin:2px 0 0; font-size:12px;">Email: ${datosSuc.correo}</p>`;
             
-            // ✅ AGREGADO TEXTO FINAL EN A4
+            // ✅ TEXTO UNIFICADO EN A4 (Sin rayita intermedia)
             const firmaDuenoHTML = `
                 <div style="margin-top:25px; text-align:center;">
                     <p style="font-weight:bold; font-size:14px; margin-bottom:15px;">Firma dueño de material entregado</p>
-                    <div style="height:60px; border-bottom:1px solid #333; width:220px; margin:0 auto;"></div>
-                    <p style="font-size:12px; color:#718096; margin-top:8px;">El material entregado es de su propiedad</p>
+                    <p style="font-size:13px; color:#333; margin-top:8px;">El material entregado es de su propiedad</p>
                 </div>`;
 
             return `<div style="font-family:'Segoe UI',Arial,sans-serif; max-width:210mm; margin:0 auto; padding:8mm 10mm; background:white;">
@@ -1773,9 +1772,8 @@
                 <div style="text-align:center; font-size:14px; margin-top:5px;">________________________________</div>
                 <div style="text-align:center; font-weight:700; font-size:13px; margin-top:5px;">(Acepto el contenido de esta factura)</div>
                 
-                <!-- ✅ AGREGADO TEXTO FINAL EN TICKET -->
-                <div style="text-align:center; font-weight:900; font-size:15px; margin-top:20px;">FIRMA DUEÑO DE MATERIAL ENTREGADO</div>
-                <div style="text-align:center; font-size:14px; margin-top:25px;">________________________________</div>
+                <!-- ✅ TEXTO UNIFICADO EN TICKET (Sin rayita intermedia) -->
+                <div style="text-align:center; font-weight:900; font-size:15px; margin-top:25px;">FIRMA DUEÑO DE MATERIAL ENTREGADO</div>
                 <div style="text-align:center; font-weight:700; font-size:13px; margin-top:5px;">El material entregado es de su propiedad</div>
                 
                 <hr style="border: 1.5px dashed #000; margin: 10px 0 5px 0;">
