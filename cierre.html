@@ -760,7 +760,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-        import { getFirestore, doc, getDoc, setDoc, collection, addDoc, deleteDoc, writeBatch, serverTimestamp, query, where, getDocs, orderBy, limit } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        import { getFirestore, doc, getDoc, setDoc, collection, addDoc, deleteDoc, writeBatch, serverTimestamp, query, where, getDocs, orderBy, limit, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyCi409CkmXBbun7-POejbVaIiThK2nZ1JY",
@@ -796,6 +796,7 @@
         let uidTrabajador = null;
         let totalAcumuladoComprasDia = 0;
         let sucursalActual = "Desconocida";
+        let inyeccionesAdmin = 0; // Variable global para guardar los envíos del admin
 
         let temporizadorFirestore = null;
 
@@ -964,6 +965,23 @@
                 actualizarTablaGastos();
                 actualizarTablaDepositos();
                 setTimeout(() => { initFirma(); detectarTrazo(); actualizarBadgeFirma(); }, 100);
+
+                // ----------------------------------------------------
+                // ESCUCHADOR EN TIEMPO REAL PARA EL DINERO DEL ADMIN
+                // ----------------------------------------------------
+                onSnapshot(doc(db, "cajas_en_vivo", sucursalActual), (docSnap) => {
+                    if (docSnap.exists()) {
+                        const data = docSnap.data();
+                        if (data.admin_envios && Array.isArray(data.admin_envios)) {
+                            const nuevoTotal = data.admin_envios.reduce((sum, envio) => sum + (parseFloat(envio.monto) || 0), 0);
+                            if (nuevoTotal !== inyeccionesAdmin) {
+                                inyeccionesAdmin = nuevoTotal;
+                                calcularCajaDinamica(); // Recalcula y actualiza la pantalla al instante
+                            }
+                        }
+                    }
+                });
+
             } else {
                 document.getElementById('login-section').style.display = 'flex';
                 document.getElementById('modulo-principal').style.display = 'none';
@@ -1418,7 +1436,7 @@
                 total += dep.monto;
                 tbody.innerHTML += `<tr><td>${dep.descripcion}</td><td style="text-align:right; color: var(--success-dark); font-weight:700;">+₡${dep.monto.toLocaleString('es-CR')}</td><td style="text-align:center;"><button onclick="eliminarDepositoLista(${idx})" class="btn-danger btn-xs">✕</button></td></tr>`;
             });
-            document.getElementById('depositosRecibidosTxt').value = "₡" + total.toLocaleString('es-CR');
+            // El total en pantalla se actualizará en calcularCajaDinamica porque suma inyeccionesAdmin
             calcularCajaDinamica();
         }
 
@@ -1469,49 +1487,39 @@
         window.calcularCajaDinamica = () => {
             const inicioBase = obtenerNumeroLimpio('cajaInicioBase');
             const ventas = obtenerNumeroLimpio('ventas');
-            const depositosPlata = obtenerTotalDepositos();
+            const depositosLocales = obtenerTotalDepositos();
+            
+            // ✅ SUMAMOS LAS INYECCIONES DEL ADMIN A LOS DEPÓSITOS TOTALES
+            const depositosTotales = depositosLocales + inyeccionesAdmin; 
+            
             const pagoFacturas = totalAcumuladoComprasDia;
             const gastosFact = obtenerTotalGastos();
-            const disponibleCaja = (inicioBase + depositosPlata + ventas) - (pagoFacturas + gastosFact);
+            const disponibleCaja = (inicioBase + depositosTotales + ventas) - (pagoFacturas + gastosFact);
+            
             document.getElementById('cajaDisponibleActual').value = "₡" + disponibleCaja.toLocaleString('es-CR');
             document.getElementById('cierreMano').value = "₡" + disponibleCaja.toLocaleString('es-CR');
+            
+            // ✅ MOSTRAMOS EL TOTAL COMBINADO EN EL INPUT DE DEPÓSITOS
+            document.getElementById('depositosRecibidosTxt').value = "₡" + depositosTotales.toLocaleString('es-CR');
+            
             localStorage.setItem(`cajaInicioBase_${sucursalActual}`, document.getElementById('cajaInicioBase').value);
             localStorage.setItem(`ventas_${sucursalActual}`, document.getElementById('ventas').value);
             clearTimeout(temporizadorFirestore);
             temporizadorFirestore = setTimeout(() => actualizarCajaFirestore(disponibleCaja), 1000);
         };
 
-        // =====================================================
-        // ACTUALIZACIÓN DE CAJA EN VIVO (CON LECTURA DE ENVÍOS DE ADMIN)
-        // =====================================================
         async function actualizarCajaFirestore(disponible) {
             if (!sucursalActual || sucursalActual === "Desconocida") return;
             try {
-                const cajaRef = doc(db, "cajas_en_vivo", sucursalActual);
-                const snap = await getDoc(cajaRef);
-                
-                let depositosAdmin = 0;
-                if (snap.exists()) {
-                    const data = snap.data();
-                    // Verificamos si el administrador envió dinero (array 'admin_envios')
-                    if (data.admin_envios && Array.isArray(data.admin_envios)) {
-                        depositosAdmin = data.admin_envios.reduce((sum, envio) => sum + (parseFloat(envio.monto) || 0), 0);
-                    }
-                }
-                
-                const depositosLocales = obtenerTotalDepositos();
-                const totalDepositosCombinados = depositosLocales + depositosAdmin;
-                const cajaDisponibleFinal = disponible + depositosAdmin;
-
-                await setDoc(cajaRef, {
+                await setDoc(doc(db, "cajas_en_vivo", sucursalActual), {
                     sucursal: sucursalActual, 
                     caja_inicio: obtenerNumeroLimpio('cajaInicioBase'),
-                    depositos: totalDepositosCombinados, 
-                    depositos_locales: depositosLocales, // Guardamos lo local para no duplicar
+                    // ✅ GUARDAMOS EL TOTAL COMBINADO
+                    depositos: obtenerTotalDepositos() + inyeccionesAdmin, 
                     ventas: obtenerNumeroLimpio('ventas'),
                     compras_facturas: totalAcumuladoComprasDia, 
                     gastos: obtenerTotalGastos(),
-                    caja_disponible: cajaDisponibleFinal, 
+                    caja_disponible: disponible, 
                     ultima_actualizacion: serverTimestamp()
                 }, { merge: true });
             } catch (e) { console.error(e); }
@@ -1824,7 +1832,7 @@
                 await addDoc(collection(db, "revisiones_faltantes"), {
                     uid_trabajador: uidTrabajador, sucursal: sucursalActual, fecha: fecha,
                     caja_inicio: obtenerNumeroLimpio('cajaInicioBase'), total_ventas: obtenerNumeroLimpio('ventas'),
-                    total_depositos: obtenerTotalDepositos(), detalles_depositos: listaDepositosDia,
+                    total_depositos: obtenerTotalDepositos() + inyeccionesAdmin, detalles_depositos: listaDepositosDia,
                     pago_materiales: totalAcumuladoComprasDia, gastos_facturas: obtenerTotalGastos(),
                     detalles_gastos: listaGastosDia, cierre_mano: obtenerNumeroLimpio('cierreMano'),
                     total_facturas: facturasDelDia.length, estado: "Pendiente", timestamp: serverTimestamp()
@@ -1852,7 +1860,7 @@
                 const ventas = obtenerNumeroLimpio('ventas');
                 const totalFacturas = totalAcumuladoComprasDia;
                 const totalGastos = obtenerTotalGastos();
-                const totalDepositos = obtenerTotalDepositos();
+                const totalDepositos = obtenerTotalDepositos() + inyeccionesAdmin;
                 const cierreMano = (cajaInicio + totalDepositos + ventas) - (totalFacturas + totalGastos);
 
                 let eliminadasOk = 0;
