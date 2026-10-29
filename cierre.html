@@ -861,10 +861,10 @@
             if (!isDrawing) return;
             e.preventDefault();
             const pos = getPos(e);
-            ctx.lineWidth = 6; // TRAZO MÁS GRUESO
+            ctx.lineWidth = 6;
             ctx.lineCap = 'round';
             ctx.lineJoin = 'round';
-            ctx.strokeStyle = '#000000'; // NEGRO PURO
+            ctx.strokeStyle = '#000000';
             ctx.lineTo(pos.x, pos.y); ctx.stroke();
             lastX = pos.x; lastY = pos.y;
         }
@@ -1481,14 +1481,38 @@
             temporizadorFirestore = setTimeout(() => actualizarCajaFirestore(disponibleCaja), 1000);
         };
 
+        // =====================================================
+        // ACTUALIZACIÓN DE CAJA EN VIVO (CON LECTURA DE ENVÍOS DE ADMIN)
+        // =====================================================
         async function actualizarCajaFirestore(disponible) {
             if (!sucursalActual || sucursalActual === "Desconocida") return;
             try {
-                await setDoc(doc(db, "cajas_en_vivo", sucursalActual), {
-                    sucursal: sucursalActual, caja_inicio: obtenerNumeroLimpio('cajaInicioBase'),
-                    depositos: obtenerTotalDepositos(), ventas: obtenerNumeroLimpio('ventas'),
-                    compras_facturas: totalAcumuladoComprasDia, gastos: obtenerTotalGastos(),
-                    caja_disponible: disponible, ultima_actualizacion: serverTimestamp()
+                const cajaRef = doc(db, "cajas_en_vivo", sucursalActual);
+                const snap = await getDoc(cajaRef);
+                
+                let depositosAdmin = 0;
+                if (snap.exists()) {
+                    const data = snap.data();
+                    // Verificamos si el administrador envió dinero (array 'admin_envios')
+                    if (data.admin_envios && Array.isArray(data.admin_envios)) {
+                        depositosAdmin = data.admin_envios.reduce((sum, envio) => sum + (parseFloat(envio.monto) || 0), 0);
+                    }
+                }
+                
+                const depositosLocales = obtenerTotalDepositos();
+                const totalDepositosCombinados = depositosLocales + depositosAdmin;
+                const cajaDisponibleFinal = disponible + depositosAdmin;
+
+                await setDoc(cajaRef, {
+                    sucursal: sucursalActual, 
+                    caja_inicio: obtenerNumeroLimpio('cajaInicioBase'),
+                    depositos: totalDepositosCombinados, 
+                    depositos_locales: depositosLocales, // Guardamos lo local para no duplicar
+                    ventas: obtenerNumeroLimpio('ventas'),
+                    compras_facturas: totalAcumuladoComprasDia, 
+                    gastos: obtenerTotalGastos(),
+                    caja_disponible: cajaDisponibleFinal, 
+                    ultima_actualizacion: serverTimestamp()
                 }, { merge: true });
             } catch (e) { console.error(e); }
         }
@@ -1694,7 +1718,6 @@
             `;
 
             if (fact.firma) {
-                // La firma se estira al 100% del contenedor
                 footerHtml += `<div style="text-align:center; margin-top:10px;"><img src="${fact.firma}" style="width:100%; height:auto; display:block; margin:0 auto;"></div>`;
             } else {
                 footerHtml += `<div style="height: 35mm;"></div>`;
@@ -1728,14 +1751,13 @@
                                 * { margin: 0; padding: 0; box-sizing: border-box; }
                                 html, body {
                                     width: 80mm;
-                                    margin: 0 auto; /* CENTRA EL BLOQUE */
+                                    margin: 0 auto;
                                     background: white;
                                     font-family: 'Arial', sans-serif;
                                     color: #000;
                                     -webkit-print-color-adjust: exact;
-                                    text-align: center; /* Centra el contenido */
+                                    text-align: center;
                                 }
-                                /* Márgenes simétricos para que no se corte a la derecha */
                                 body { padding: 4mm 2mm 15mm 2mm; }
                                 @media print {
                                     html, body { width: 80mm; margin: 0 auto; padding: 4mm 2mm 10mm 2mm; }
