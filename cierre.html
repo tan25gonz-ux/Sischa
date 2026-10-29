@@ -499,16 +499,13 @@
                             </div>
                         </div>
                         <div>
-                            <label>Nombre Completo</label>
+                            <label>Nombre Completoo</label>
                             <input type="text" id="nombreCliente" placeholder="Nombre completo">
                         </div>
                         <div>
                             <label># Número de Factura</label>
-                            <!-- SOLUCIÓN: Se borra automáticamente al enfocar para evitar números pegados -->
-                            <input type="text" id="numFacturaCliente" 
-                                   onfocus="this.dataset.old = this.value; this.value = '';" 
-                                   onblur="if(!this.value) this.value = this.dataset.old;" 
-                                   style="border-color: var(--primary); font-weight: 700; background: var(--primary-light);">
+                            <!-- Se fuerza a que solo acepte números -->
+                            <input type="number" id="numFacturaCliente" onkeypress="return event.charCode >= 48 && event.charCode <= 57" oninput="if(this.value.length > 8) this.value = this.value.slice(0,8);" style="border-color: var(--primary); font-weight: 700; background: var(--primary-light);">
                         </div>
                     </div>
 
@@ -1060,7 +1057,10 @@
         async function obtenerSiguienteNumeroFacturaActual() {
             try {
                 const snap = await getDoc(doc(db, "contadores_facturas", sucursalActual));
-                document.getElementById('numFacturaCliente').value = snap.exists() ? (snap.data().ultimo_numero || 0) + 1 : 1;
+                const ultimo = snap.exists() ? (parseInt(snap.data().ultimo_numero) || 0) : 0;
+                // Si por error el contador en Firebase tiene un número gigante (ej. 117380489), lo reseteamos
+                const numSeguro = ultimo > 10000 ? 1 : ultimo + 1;
+                document.getElementById('numFacturaCliente').value = numSeguro;
             } catch (error) { console.error(error); }
         }
 
@@ -1074,17 +1074,20 @@
                 let maxNum = 0;
                 snap.forEach(d => {
                     const n = parseInt(d.data().num_factura) || 0;
-                    if (n > maxNum) maxNum = n;
+                    if (n > maxNum && n < 10000) maxNum = n; // Ignoramos números corruptos
                 });
+                
                 await setDoc(doc(db, "contadores_facturas", sucursalActual), {
                     ultimo_numero: maxNum
                 }, { merge: true });
+                
+                // Forzamos la actualización del campo visual
                 document.getElementById('numFacturaCliente').value = maxNum + 1;
             } catch (e) {
                 console.error("Error ajustando contador:", e);
                 const maxLocal = facturasDelDia.reduce((max, fac) => {
                     const n = parseInt(fac.num_factura) || 0;
-                    return n > max ? n : max;
+                    return (n > max && n < 10000) ? n : max;
                 }, 0);
                 try {
                     await setDoc(doc(db, "contadores_facturas", sucursalActual), {
@@ -1366,8 +1369,10 @@
 
                 const docRefCont = doc(db, "contadores_facturas", sucursalActual);
                 const docSnap = await getDoc(docRefCont);
-                let ultimoNum = docSnap.exists() ? (docSnap.data().ultimo_numero || 0) : 0;
-                if (numFacturaInt > ultimoNum) await setDoc(docRefCont, { ultimo_numero: numFacturaInt }, { merge: true });
+                let ultimoNum = docSnap.exists() ? (parseInt(docSnap.data().ultimo_numero) || 0) : 0;
+                if (numFacturaInt > ultimoNum && numFacturaInt < 10000) {
+                    await setDoc(docRefCont, { ultimo_numero: numFacturaInt }, { merge: true });
+                }
 
                 let totalFactura = materialesIngresados.reduce((sum, item) => sum + item.total_pago, 0);
 
@@ -1603,6 +1608,7 @@
                 } catch (e) { alert("Error: " + e.message); return; }
                 facturasDelDia.splice(index, 1);
                 localStorage.setItem(`facturas_${sucursalActual}`, JSON.stringify(facturasDelDia));
+                // Ajustamos contador en base a lo que queda
                 await ajustarContadorFacturas();
                 actualizarTablaGeneralDia();
             }
