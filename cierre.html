@@ -615,7 +615,6 @@
                         </div>
                         <div>
                             <label>Ventas del Día (Total)</label>
-                            <!-- CAMBIO: Ahora es readonly -->
                             <input type="text" id="ventas" readonly style="background: linear-gradient(135deg, #ecfdf5, #d1fae5); color: var(--success-dark); font-weight: 700;">
                         </div>
                         <div>
@@ -834,13 +833,14 @@
         let facturasDelDia = [];
         let listaGastosDia = [];
         let listaDepositosDia = [];
-        let listaVentasDia = []; // ✅ NUEVA LISTA
+        let listaVentasDia = [];
         let uidTrabajador = null;
         let totalAcumuladoComprasDia = 0;
         let sucursalActual = "Desconocida";
         let inyeccionesAdmin = 0; 
         
         let deudaMovimientosBase = 0; 
+        let timestampUltimoCierre = 0; // ✅ GUARDAREMOS LA HORA DEL CIERRE
 
         let temporizadorFirestore = null;
 
@@ -858,7 +858,6 @@
         let unsubscribeEstado = null;
         let unsubscribeInventario = null; 
         
-        // 🔒 CANDADO DE SEGURIDAD: Evita sobreescribir con ceros mientras carga
         let cargaInicialCompletada = false; 
 
         function obtenerFechaHoy() {
@@ -1043,7 +1042,7 @@
         // ☁️ SINCRONIZACIÓN EN LA NUBE
         // =====================================================
         function iniciarSincronizacionNube() {
-            // 1. Escuchar Estado del Día (Caja, Gastos, Depósitos, Ventas)
+            // 1. Escuchar Estado del Día (Caja, Gastos, Depósitos, Ventas, Timestamp de Cierre)
             estadoDiaRef = doc(db, "estado_dia", sucursalActual);
             
             unsubscribeEstado = onSnapshot(estadoDiaRef, (docSnap) => {
@@ -1058,17 +1057,19 @@
                         inputCajaBase.value = (data.caja_inicio || 0).toLocaleString('es-CR');
                     }
                     
-                    listaVentasDia = data.ventas_lista || []; // ✅ CARGAR VENTAS
+                    // ✅ CARGAR EL TIMESTAMP DEL ÚLTIMO CIERRE
+                    timestampUltimoCierre = data.timestamp_ultimo_cierre ? data.timestamp_ultimo_cierre.toMillis() : 0;
+
+                    listaVentasDia = data.ventas_lista || []; 
                     listaGastosDia = data.gastos || [];
                     listaDepositosDia = data.depositos || [];
                 } else {
                     setDoc(estadoDiaRef, { caja_inicio: 0, ventas_lista: [], gastos: [], depositos: [] }, { merge: true });
                 }
                 
-                // ✅ ABRIMOS EL CANDADO: Ya leímos la base de datos real
                 cargaInicialCompletada = true;
 
-                actualizarTablaVentas(); // ✅ ACTUALIZAR TABLA
+                actualizarTablaVentas(); 
                 actualizarTablaGastos();
                 actualizarTablaDepositos();
                 calcularCajaDinamica();
@@ -1084,7 +1085,12 @@
 
                 facturasDelDia = [];
                 snapshot.forEach(doc => {
-                    facturasDelDia.push({ ...doc.data(), _docId: doc.id });
+                    const data = doc.data();
+                    // ✅ FILTRO MÁGICO: Solo mostrar facturas creadas DESPUÉS del último cierre
+                    const timestampFactura = data.timestamp ? data.timestamp.toMillis() : 0;
+                    if (timestampFactura > timestampUltimoCierre) {
+                        facturasDelDia.push({ ...data, _docId: doc.id });
+                    }
                 });
                 facturasDelDia.sort((a, b) => (parseInt(a.num_factura) || 0) - (parseInt(b.num_factura) || 0));
                 actualizarTablaGeneralDia();
@@ -1098,13 +1104,11 @@
                 }
             });
 
-            // ✅ 4. Escuchar Contador de Facturas en tiempo real (Sincronización PC-Teléfono)
+            // ✅ 4. Escuchar Contador de Facturas en tiempo real
             onSnapshot(doc(db, "contadores_facturas", sucursalActual), (docSnap) => {
                 if (docSnap.exists()) {
                     const ultimo = parseInt(docSnap.data().ultimo_numero) || 0;
                     const inputNumFactura = document.getElementById('numFacturaCliente');
-                    
-                    // Solo actualizamos el valor si el usuario no está escribiendo en ese campo justo ahora
                     if (document.activeElement !== inputNumFactura) {
                         inputNumFactura.value = ultimo + 1;
                     }
@@ -1113,7 +1117,7 @@
         }
 
         // =====================================================
-        // 💰 OPTIMIZACIÓN DE LA DEUDA (TIEMPO REAL SIN GASTO MASIVO)
+        // 💰 OPTIMIZACIÓN DE LA DEUDA
         // =====================================================
         async function inicializarDeudaRealTime() {
             try {
@@ -1278,7 +1282,7 @@
                 facturasDelDia = [];
                 listaGastosDia = [];
                 listaDepositosDia = [];
-                listaVentasDia = []; // Limpiar
+                listaVentasDia = [];
 
                 const fechaCierre = data.fecha || '';
                 const sucCierre = data.sucursal || sucursalActual;
@@ -1293,7 +1297,7 @@
                     facturasDelDia.sort((a, b) => (parseInt(a.num_factura) || 0) - (parseInt(b.num_factura) || 0));
                 }
 
-                if (data.detalles_ventas) listaVentasDia = JSON.parse(JSON.stringify(data.detalles_ventas)); // ✅ CARGAR VENTAS
+                if (data.detalles_ventas) listaVentasDia = JSON.parse(JSON.stringify(data.detalles_ventas));
                 if (data.detalles_gastos) listaGastosDia = JSON.parse(JSON.stringify(data.detalles_gastos));
                 if (data.detalles_depositos) listaDepositosDia = JSON.parse(JSON.stringify(data.detalles_depositos));
 
@@ -1301,7 +1305,7 @@
                 document.getElementById('fecha').value = fechaCierre;
 
                 actualizarTablaGeneralDia();
-                actualizarTablaVentas(); // ✅
+                actualizarTablaVentas(); 
                 actualizarTablaGastos();
                 actualizarTablaDepositos();
                 calcularCajaDinamica();
@@ -1512,9 +1516,6 @@
 
                 limpiarFormularioFactura();
                 
-                // NOTA: Ya no llamamos a obtenerSiguienteNumeroFacturaActual() aquí
-                // porque el onSnapshot del contador lo hará automáticamente en todos los dispositivos.
-
                 document.getElementById('cedulaCliente').focus();
 
                 alert(`✅ Factura #${numFactura} guardada.`);
@@ -1639,7 +1640,6 @@
             let valor = input.value.replace(/\D/g, "");
             if (valor) input.value = Number(valor).toLocaleString('es-CR'); else input.value = "";
             
-            // Evitar que al formatear el input de ventas (que es readonly) se dispare el cálculo de nuevo innecesariamente
             if (input.id !== 'ventas') {
                 calcularCajaDinamica();
             }
@@ -1653,7 +1653,7 @@
 
         window.calcularCajaDinamica = () => {
             const inicioBase = obtenerNumeroLimpio('cajaInicioBase');
-            const ventas = obtenerTotalVentas(); // ✅ Usar total del array
+            const ventas = obtenerTotalVentas(); 
             const depositosLocales = obtenerTotalDepositos();
             const depositosTotales = depositosLocales + inyeccionesAdmin; 
             const pagoFacturas = totalAcumuladoComprasDia;
@@ -1664,7 +1664,6 @@
             document.getElementById('cierreMano').value = "₡" + disponibleCaja.toLocaleString('es-CR');
             document.getElementById('depositosRecibidosTxt').value = "₡" + depositosTotales.toLocaleString('es-CR');
             
-            // 🔒 CANDADO: Si la carga inicial no ha terminado, NO guardamos nada en Firebase
             if (!cargaInicialCompletada) {
                 console.log("Esperando datos de Firebase... no se guarda todavía.");
                 return; 
@@ -1673,7 +1672,7 @@
             clearTimeout(temporizadorFirestore);
             temporizadorFirestore = setTimeout(() => {
                 if (estadoDiaRef && !modoEdicionCierre) {
-                    updateDoc(estadoDiaRef, { caja_inicio: inicioBase, ventas: ventas }); // Guardar total
+                    updateDoc(estadoDiaRef, { caja_inicio: inicioBase, ventas: ventas }); 
                 }
                 actualizarCajaFirestore(disponibleCaja);
             }, 1000);
@@ -1686,7 +1685,7 @@
                     sucursal: sucursalActual, 
                     caja_inicio: obtenerNumeroLimpio('cajaInicioBase'),
                     depositos: obtenerTotalDepositos() + inyeccionesAdmin, 
-                    ventas: obtenerTotalVentas(), // ✅ Total de ventas
+                    ventas: obtenerTotalVentas(), 
                     compras_facturas: totalAcumuladoComprasDia, 
                     gastos: obtenerTotalGastos(),
                     caja_disponible: disponible, 
@@ -1997,19 +1996,21 @@
                 await addDoc(collection(db, "revisiones_faltantes"), {
                     uid_trabajador: uidTrabajador, sucursal: sucursalActual, fecha: fecha,
                     caja_inicio: obtenerNumeroLimpio('cajaInicioBase'), 
-                    total_ventas: obtenerTotalVentas(), // ✅ Total
-                    detalles_ventas: listaVentasDia, // ✅ Detalle
+                    total_ventas: obtenerTotalVentas(), 
+                    detalles_ventas: listaVentasDia, 
                     total_depositos: obtenerTotalDepositos() + inyeccionesAdmin, detalles_depositos: listaDepositosDia,
                     pago_materiales: totalAcumuladoComprasDia, gastos_facturas: obtenerTotalGastos(),
                     detalles_gastos: listaGastosDia, cierre_mano: cierreMano,
                     total_facturas: facturasDelDia.length, estado: "Pendiente", timestamp: serverTimestamp()
                 });
 
+                // ✅ GUARDAMOS EL TIMESTAMP DEL CIERRE PARA OCULTAR LAS FACTURAS VIEJAS
                 await setDoc(estadoDiaRef, {
                     caja_inicio: cierreMano,
-                    ventas_lista: [], // ✅ Limpiar
+                    ventas_lista: [], 
                     gastos: [],
-                    depositos: []
+                    depositos: [],
+                    timestamp_ultimo_cierre: serverTimestamp() // Sello de tiempo
                 });
 
                 await updateDoc(doc(db, "cajas_en_vivo", sucursalActual), {
@@ -2018,7 +2019,7 @@
                     caja_disponible: 0
                 });
 
-                alert("✅ Cierre enviado y caja base actualizada para el siguiente día.");
+                alert("✅ Cierre enviado y pantalla limpia. Listo para el siguiente turno.");
                 location.reload();
             } catch (e) {
                 alert("Error: " + e.message);
@@ -2048,7 +2049,7 @@
                 await setDoc(doc(db, "revisiones_faltantes", cierreIdEnEdicion), {
                     caja_inicio: cajaInicio, 
                     total_ventas: ventas,
-                    detalles_ventas: listaVentasDia, // ✅ Detalle
+                    detalles_ventas: listaVentasDia, 
                     total_depositos: totalDepositos, detalles_depositos: listaDepositosDia,
                     pago_materiales: totalFacturas, gastos_facturas: totalGastos,
                     detalles_gastos: listaGastosDia, cierre_mano: cierreMano,
