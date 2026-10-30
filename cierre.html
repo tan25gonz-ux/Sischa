@@ -614,8 +614,9 @@
                             <input type="text" id="cajaDisponibleActual" readonly style="background: linear-gradient(135deg, #ecfdf5, #d1fae5); color: var(--success-dark); font-weight: 700; border-color: var(--success);">
                         </div>
                         <div>
-                            <label>Ventas del Día</label>
-                            <input type="text" id="ventas" placeholder="0" oninput="formatearInputMoneda(this)">
+                            <label>Ventas del Día (Total)</label>
+                            <!-- CAMBIO: Ahora es readonly -->
+                            <input type="text" id="ventas" readonly style="background: linear-gradient(135deg, #ecfdf5, #d1fae5); color: var(--success-dark); font-weight: 700;">
                         </div>
                         <div>
                             <label>Plata Agregada / Depósitos</label>
@@ -628,6 +629,25 @@
                         <div>
                             <label>Gastos Varios</label>
                             <input type="text" id="gastosFact" readonly style="background: linear-gradient(135deg, #fef2f2, #fee2e2); color: #991b1b; font-weight: 700;">
+                        </div>
+                    </div>
+
+                    <div class="section-divider">📈 Registrar Venta del Día</div>
+
+                    <div class="field-row input-inline">
+                        <input type="text" id="ventaDescInput" placeholder="Detalle (ej: Venta de chatarra)">
+                        <input type="text" id="ventaMontoInput" placeholder="Monto ₡" oninput="formatearInputMoneda(this)">
+                        <button class="btn-info" onclick="agregarVentaLista()">➕ Sumar</button>
+                    </div>
+
+                    <div class="table-wrapper" style="margin-top:10px;">
+                        <div class="table-responsive">
+                            <table>
+                                <thead>
+                                    <tr><th>Detalle</th><th style="text-align:right;">Monto</th><th style="width:60px;"></th></tr>
+                                </thead>
+                                <tbody id="body-ventas-lista"></tbody>
+                            </table>
                         </div>
                     </div>
 
@@ -814,6 +834,7 @@
         let facturasDelDia = [];
         let listaGastosDia = [];
         let listaDepositosDia = [];
+        let listaVentasDia = []; // ✅ NUEVA LISTA
         let uidTrabajador = null;
         let totalAcumuladoComprasDia = 0;
         let sucursalActual = "Desconocida";
@@ -1022,7 +1043,7 @@
         // ☁️ SINCRONIZACIÓN EN LA NUBE
         // =====================================================
         function iniciarSincronizacionNube() {
-            // 1. Escuchar Estado del Día (Caja, Gastos, Depósitos)
+            // 1. Escuchar Estado del Día (Caja, Gastos, Depósitos, Ventas)
             estadoDiaRef = doc(db, "estado_dia", sucursalActual);
             
             unsubscribeEstado = onSnapshot(estadoDiaRef, (docSnap) => {
@@ -1037,16 +1058,17 @@
                         inputCajaBase.value = (data.caja_inicio || 0).toLocaleString('es-CR');
                     }
                     
-                    document.getElementById('ventas').value = (data.ventas || 0).toLocaleString('es-CR');
+                    listaVentasDia = data.ventas_lista || []; // ✅ CARGAR VENTAS
                     listaGastosDia = data.gastos || [];
                     listaDepositosDia = data.depositos || [];
                 } else {
-                    setDoc(estadoDiaRef, { caja_inicio: 0, ventas: 0, gastos: [], depositos: [] }, { merge: true });
+                    setDoc(estadoDiaRef, { caja_inicio: 0, ventas_lista: [], gastos: [], depositos: [] }, { merge: true });
                 }
                 
                 // ✅ ABRIMOS EL CANDADO: Ya leímos la base de datos real
                 cargaInicialCompletada = true;
 
+                actualizarTablaVentas(); // ✅ ACTUALIZAR TABLA
                 actualizarTablaGastos();
                 actualizarTablaDepositos();
                 calcularCajaDinamica();
@@ -1256,6 +1278,7 @@
                 facturasDelDia = [];
                 listaGastosDia = [];
                 listaDepositosDia = [];
+                listaVentasDia = []; // Limpiar
 
                 const fechaCierre = data.fecha || '';
                 const sucCierre = data.sucursal || sucursalActual;
@@ -1270,14 +1293,15 @@
                     facturasDelDia.sort((a, b) => (parseInt(a.num_factura) || 0) - (parseInt(b.num_factura) || 0));
                 }
 
+                if (data.detalles_ventas) listaVentasDia = JSON.parse(JSON.stringify(data.detalles_ventas)); // ✅ CARGAR VENTAS
                 if (data.detalles_gastos) listaGastosDia = JSON.parse(JSON.stringify(data.detalles_gastos));
                 if (data.detalles_depositos) listaDepositosDia = JSON.parse(JSON.stringify(data.detalles_depositos));
 
                 document.getElementById('cajaInicioBase').value = (parseFloat(data.caja_inicio) || 0).toLocaleString('es-CR');
-                document.getElementById('ventas').value = (parseFloat(data.total_ventas) || 0).toLocaleString('es-CR');
                 document.getElementById('fecha').value = fechaCierre;
 
                 actualizarTablaGeneralDia();
+                actualizarTablaVentas(); // ✅
                 actualizarTablaGastos();
                 actualizarTablaDepositos();
                 calcularCajaDinamica();
@@ -1510,8 +1534,44 @@
         }
 
         // =====================================================
-        // DEPOSITOS / GASTOS
+        // VENTAS, DEPOSITOS Y GASTOS
         // =====================================================
+        window.agregarVentaLista = async () => {
+            const desc = document.getElementById('ventaDescInput').value.trim();
+            const monto = obtenerNumeroLimpio('ventaMontoInput');
+            if (!desc || monto <= 0) { alert("⚠️ Ingrese descripción y monto."); return; }
+            
+            listaVentasDia.push({ descripcion: desc, monto: monto });
+            await updateDoc(estadoDiaRef, { ventas_lista: listaVentasDia });
+
+            document.getElementById('ventaDescInput').value = "";
+            document.getElementById('ventaMontoInput').value = "";
+        };
+
+        window.eliminarVentaLista = async (index) => {
+            listaVentasDia.splice(index, 1);
+            await updateDoc(estadoDiaRef, { ventas_lista: listaVentasDia });
+        };
+
+        function obtenerTotalVentas() { return listaVentasDia.reduce((sum, v) => sum + v.monto, 0); }
+
+        function actualizarTablaVentas() {
+            const tbody = document.getElementById('body-ventas-lista');
+            tbody.innerHTML = "";
+            let total = 0;
+            if (listaVentasDia.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="3" class="empty-state">Sin ventas registradas</td></tr>`;
+            } else {
+                listaVentasDia.forEach((venta, idx) => {
+                    total += venta.monto;
+                    tbody.innerHTML += `<tr><td>${venta.descripcion}</td><td style="text-align:right; color: var(--success-dark); font-weight:700;">+₡${venta.monto.toLocaleString('es-CR')}</td><td style="text-align:center;"><button onclick="eliminarVentaLista(${idx})" class="btn-danger btn-xs">✕</button></td></tr>`;
+                });
+            }
+            document.getElementById('ventas').value = "₡" + total.toLocaleString('es-CR');
+            calcularCajaDinamica();
+        }
+
+
         window.agregarDepositoLista = async () => {
             const desc = document.getElementById('depositoDescInput').value.trim();
             const monto = obtenerNumeroLimpio('depositoMontoInput');
@@ -1578,7 +1638,11 @@
         window.formatearInputMoneda = (input) => {
             let valor = input.value.replace(/\D/g, "");
             if (valor) input.value = Number(valor).toLocaleString('es-CR'); else input.value = "";
-            calcularCajaDinamica();
+            
+            // Evitar que al formatear el input de ventas (que es readonly) se dispare el cálculo de nuevo innecesariamente
+            if (input.id !== 'ventas') {
+                calcularCajaDinamica();
+            }
         };
 
         function obtenerNumeroLimpio(idElemento) {
@@ -1589,7 +1653,7 @@
 
         window.calcularCajaDinamica = () => {
             const inicioBase = obtenerNumeroLimpio('cajaInicioBase');
-            const ventas = obtenerNumeroLimpio('ventas');
+            const ventas = obtenerTotalVentas(); // ✅ Usar total del array
             const depositosLocales = obtenerTotalDepositos();
             const depositosTotales = depositosLocales + inyeccionesAdmin; 
             const pagoFacturas = totalAcumuladoComprasDia;
@@ -1609,7 +1673,7 @@
             clearTimeout(temporizadorFirestore);
             temporizadorFirestore = setTimeout(() => {
                 if (estadoDiaRef && !modoEdicionCierre) {
-                    updateDoc(estadoDiaRef, { caja_inicio: inicioBase, ventas: ventas });
+                    updateDoc(estadoDiaRef, { caja_inicio: inicioBase, ventas: ventas }); // Guardar total
                 }
                 actualizarCajaFirestore(disponibleCaja);
             }, 1000);
@@ -1622,7 +1686,7 @@
                     sucursal: sucursalActual, 
                     caja_inicio: obtenerNumeroLimpio('cajaInicioBase'),
                     depositos: obtenerTotalDepositos() + inyeccionesAdmin, 
-                    ventas: obtenerNumeroLimpio('ventas'),
+                    ventas: obtenerTotalVentas(), // ✅ Total de ventas
                     compras_facturas: totalAcumuladoComprasDia, 
                     gastos: obtenerTotalGastos(),
                     caja_disponible: disponible, 
@@ -1932,7 +1996,9 @@
                 
                 await addDoc(collection(db, "revisiones_faltantes"), {
                     uid_trabajador: uidTrabajador, sucursal: sucursalActual, fecha: fecha,
-                    caja_inicio: obtenerNumeroLimpio('cajaInicioBase'), total_ventas: obtenerNumeroLimpio('ventas'),
+                    caja_inicio: obtenerNumeroLimpio('cajaInicioBase'), 
+                    total_ventas: obtenerTotalVentas(), // ✅ Total
+                    detalles_ventas: listaVentasDia, // ✅ Detalle
                     total_depositos: obtenerTotalDepositos() + inyeccionesAdmin, detalles_depositos: listaDepositosDia,
                     pago_materiales: totalAcumuladoComprasDia, gastos_facturas: obtenerTotalGastos(),
                     detalles_gastos: listaGastosDia, cierre_mano: cierreMano,
@@ -1941,7 +2007,7 @@
 
                 await setDoc(estadoDiaRef, {
                     caja_inicio: cierreMano,
-                    ventas: 0,
+                    ventas_lista: [], // ✅ Limpiar
                     gastos: [],
                     depositos: []
                 });
@@ -1967,7 +2033,7 @@
             try {
                 const fechaCierre = document.getElementById('fecha').value;
                 const cajaInicio = obtenerNumeroLimpio('cajaInicioBase');
-                const ventas = obtenerNumeroLimpio('ventas');
+                const ventas = obtenerTotalVentas();
                 const totalFacturas = totalAcumuladoComprasDia;
                 const totalGastos = obtenerTotalGastos();
                 const totalDepositos = obtenerTotalDepositos() + inyeccionesAdmin;
@@ -1980,7 +2046,9 @@
                 }
 
                 await setDoc(doc(db, "revisiones_faltantes", cierreIdEnEdicion), {
-                    caja_inicio: cajaInicio, total_ventas: ventas,
+                    caja_inicio: cajaInicio, 
+                    total_ventas: ventas,
+                    detalles_ventas: listaVentasDia, // ✅ Detalle
                     total_depositos: totalDepositos, detalles_depositos: listaDepositosDia,
                     pago_materiales: totalFacturas, gastos_facturas: totalGastos,
                     detalles_gastos: listaGastosDia, cierre_mano: cierreMano,
