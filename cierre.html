@@ -1129,21 +1129,26 @@
             try {
                 const snap = await getDoc(doc(db, "contadores_facturas", sucursalActual));
                 const ultimo = snap.exists() ? (parseInt(snap.data().ultimo_numero) || 0) : 0;
-                const numSeguro = ultimo > 10000 ? 1 : ultimo + 1;
+                // CORRECCIÓN: Quitamos el límite de 10000
+                const numSeguro = ultimo + 1; 
                 document.getElementById('numFacturaCliente').value = numSeguro;
             } catch (error) { console.error(error); }
         }
 
         async function ajustarContadorFacturas(numeroBorrado) {
             try {
-                let numRestar = parseInt(numeroBorrado) - 1;
-                if (isNaN(numRestar) || numRestar < 0) numRestar = 0;
-
-                await setDoc(doc(db, "contadores_facturas", sucursalActual), {
-                    ultimo_numero: numRestar
-                }, { merge: true });
+                const snap = await getDoc(doc(db, "contadores_facturas", sucursalActual));
+                const ultimo = snap.exists() ? (parseInt(snap.data().ultimo_numero) || 0) : 0;
                 
-                document.getElementById('numFacturaCliente').value = numRestar + 1;
+                // CORRECCIÓN: Solo ajustamos si el número borrado es exactamente el último que se generó
+                if (parseInt(numeroBorrado) === ultimo) {
+                    let numRestar = ultimo - 1;
+                    if (numRestar < 0) numRestar = 0;
+                    await setDoc(doc(db, "contadores_facturas", sucursalActual), {
+                        ultimo_numero: numRestar
+                    }, { merge: true });
+                    document.getElementById('numFacturaCliente').value = numRestar + 1;
+                }
             } catch (e) {
                 console.error("Error ajustando contador:", e);
             }
@@ -1405,7 +1410,9 @@
                 const docRefCont = doc(db, "contadores_facturas", sucursalActual);
                 const docSnap = await getDoc(docRefCont);
                 let ultimoNum = docSnap.exists() ? (parseInt(docSnap.data().ultimo_numero) || 0) : 0;
-                if (numFacturaInt > ultimoNum && numFacturaInt < 10000) {
+                
+                // CORRECCIÓN: Se elimina la restricción < 10000
+                if (numFacturaInt > ultimoNum) {
                     await setDoc(docRefCont, { ultimo_numero: numFacturaInt }, { merge: true });
                 }
 
