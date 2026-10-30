@@ -52,6 +52,7 @@
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
             gap: 20px;
+            align-items: start;
         }
 
         .card-caja {
@@ -118,6 +119,58 @@
         
         .monto-pos { color: #059669; font-weight: 800; }
         .monto-neg { color: #dc2626; font-weight: 800; }
+
+        /* ESTILOS DEL INVENTARIO */
+        .inventario-container {
+            margin-top: 15px;
+            border: 1px solid var(--gray-200);
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        .btn-toggle-inventario {
+            width: 100%;
+            background: #e0e7ff;
+            color: #3730a3;
+            padding: 12px;
+            border: none;
+            font-weight: 800;
+            font-size: 13px;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: background 0.2s;
+        }
+        .btn-toggle-inventario:hover { background: #c7d2fe; }
+        .inventario-listado {
+            display: none;
+            max-height: 180px;
+            overflow-y: auto;
+            background: white;
+            padding: 10px;
+        }
+        .inventario-listado.active { display: block; }
+        .inv-item {
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+            padding: 6px 8px;
+            border-bottom: 1px solid var(--gray-100);
+            font-weight: 600;
+            color: var(--gray-600);
+        }
+        .inv-item:last-child { border-bottom: none; }
+        .inv-total {
+            background: var(--gray-50);
+            padding: 8px;
+            font-size: 12px;
+            font-weight: 800;
+            text-align: center;
+            color: var(--primary);
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        /* FIN ESTILOS INVENTARIO */
 
         .actions-box {
             margin-top: 20px;
@@ -192,6 +245,10 @@
         .modal-buttons { display: flex; gap: 10px; }
         .btn-cancel { background: var(--gray-100); color: var(--gray-600); border: none; padding: 12px; border-radius: 8px; font-weight: 700; cursor: pointer; flex: 1; }
         .btn-confirm { background: var(--primary); color: white; border: none; padding: 12px; border-radius: 8px; font-weight: 700; cursor: pointer; flex: 1; }
+    
+        /* Scrollbar para inventario */
+        .inventario-listado::-webkit-scrollbar { width: 6px; }
+        .inventario-listado::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
     </style>
 </head>
 <body>
@@ -200,7 +257,7 @@
         <div class="header-panel">
             <div>
                 <h2>🔴 Panel de Administración</h2>
-                <small>Monitoreo de cajas y arqueos en tiempo real</small>
+                <small>Monitoreo de cajas e inventario en tiempo real</small>
             </div>
         </div>
 
@@ -249,22 +306,76 @@
         let sucursalSeleccionada = "";
         let montoAInyectar = 0;
 
-        // --- ESCUCHADOR EN TIEMPO REAL ---
-        onSnapshot(collection(db, "cajas_en_vivo"), (snapshot) => {
-            const contenedor = document.getElementById('contenedor-cajas');
-            contenedor.innerHTML = "";
+        // ✅ OBJETOS GLOBALES PARA GUARDAR DATOS Y EVITAR MULTIPLES RENDERIZADOS
+        let cajasDataGlobal = [];
+        let inventariosGlobal = {};
 
-            if (snapshot.empty) {
+        // =====================================================
+        // 1. ESCUCHADOR DE CAJAS (Tiempo Real)
+        // =====================================================
+        onSnapshot(collection(db, "cajas_en_vivo"), (snapshot) => {
+            cajasDataGlobal = [];
+            snapshot.forEach((documento) => {
+                cajasDataGlobal.push(documento.data());
+            });
+            renderizarPanel(); // Redibujamos todo
+        });
+
+        // =====================================================
+        // 2. ESCUCHADOR DE INVENTARIOS (Optimizado: 1 sola escucha para todos)
+        // =====================================================
+        onSnapshot(collection(db, "inventario"), (snapshot) => {
+            inventariosGlobal = {};
+            snapshot.forEach((documento) => {
+                // Guardamos los materiales por el ID del documento (que es el nombre de la sucursal)
+                inventariosGlobal[documento.id] = documento.data().materiales || {};
+            });
+            renderizarPanel(); // Redibujamos todo
+        });
+
+        // =====================================================
+        // 3. RENDERIZADO DEL PANEL (Se llama cuando cambia algo)
+        // =====================================================
+        function renderizarPanel() {
+            const contenedor = document.getElementById('contenedor-cajas');
+
+            if (cajasDataGlobal.length === 0) {
                 contenedor.innerHTML = "<p style='color:var(--gray-600);'>No hay cajas activas registradas en este momento.</p>";
                 return;
             }
 
-            snapshot.forEach((documento) => {
-                const data = documento.data();
+            contenedor.innerHTML = ""; // Limpiamos antes de dibujar
+
+            cajasDataGlobal.forEach((data) => {
                 const hora = data.ultima_actualizacion ? new Date(data.ultima_actualizacion.toDate()).toLocaleTimeString() : 'En espera';
                 const envios = data.admin_envios || [];
+                
+                // Obtener inventario de esta sucursal
+                const inventarioSucursal = inventariosGlobal[data.sucursal] || {};
+                
+                // Generar HTML del inventario
+                let invHtml = '';
+                let totalKg = 0;
+                const entradasInv = Object.entries(inventarioSucursal).filter(([m, kg]) => Math.abs(parseFloat(kg) || 0) > 0.0001);
 
-                // Generar la lista de envíos realizados
+                if (entradasInv.length === 0) {
+                    invHtml = `<div style="padding:10px; text-align:center; font-size:12px; color:var(--gray-400);">Inventario vacío</div>`;
+                } else {
+                    entradasInv.sort((a, b) => a[0].localeCompare(b[0])); // Orden alfabético
+                    entradasInv.forEach(([mat, kg]) => {
+                        const kgNum = parseFloat(kg) || 0;
+                        totalKg += kgNum;
+                        const color = kgNum < 0 ? 'var(--danger)' : 'var(--primary)';
+                        invHtml += `
+                            <div class="inv-item">
+                                <span>${mat}</span>
+                                <span style="color:${color}; font-weight:800;">${kgNum.toFixed(2)} kg</span>
+                            </div>
+                        `;
+                    });
+                }
+
+                // Generar lista de envíos
                 let enviosHtml = '';
                 if (envios.length > 0) {
                     envios.forEach((envio, index) => {
@@ -277,6 +388,7 @@
                     });
                 }
 
+                // Estructura de la tarjeta
                 contenedor.innerHTML += `
                     <div class="card-caja">
                         <div style="display:flex; justify-content:space-between; align-items:center;">
@@ -310,6 +422,19 @@
                             </div>
                         </div>
 
+                        <!-- SECCIÓN DE INVENTARIO -->
+                        <div class="inventario-container">
+                            <button class="btn-toggle-inventario" onclick="toggleInventario('${data.sucursal}')">
+                                <span>📦 Ver Inventario Actual</span>
+                                <span id="flecha-${data.sucursal}">▼</span>
+                            </button>
+                            <div id="inv-${data.sucursal}" class="inventario-listado">
+                                <div class="inv-total">Total en Stock: ${totalKg.toFixed(2)} kg</div>
+                                ${invHtml}
+                            </div>
+                        </div>
+                        <!-- FIN SECCIÓN DE INVENTARIO -->
+
                         <div class="actions-box">
                             <button class="btn-inyectar" onclick="abrirModal('${data.sucursal}')">
                                 💸 Inyectar Dinero
@@ -319,9 +444,26 @@
                     </div>
                 `;
             });
-        });
+        }
 
-        // --- LÓGICA DEL MODAL ---
+        // =====================================================
+        // 4. FUNCIONES DE UI (Acordeón de Inventario)
+        // =====================================================
+        window.toggleInventario = function(sucursal) {
+            const div = document.getElementById(`inv-${sucursal}`);
+            const flecha = document.getElementById(`flecha-${sucursal}`);
+            if (div.classList.contains('active')) {
+                div.classList.remove('active');
+                flecha.innerText = '▼';
+            } else {
+                div.classList.add('active');
+                flecha.innerText = '▲';
+            }
+        };
+
+        // =====================================================
+        // 5. LÓGICA DEL MODAL (Inyección de dinero)
+        // =====================================================
         window.abrirModal = function(sucursal) {
             sucursalSeleccionada = sucursal;
             document.getElementById('modal-sucursal-nombre').innerText = sucursal;
@@ -377,7 +519,9 @@
             }
         };
 
-        // --- ELIMINAR UN ENVÍO EQUIVOCADO ---
+        // =====================================================
+        // 6. ELIMINAR UN ENVÍO EQUIVOCADO
+        // =====================================================
         window.eliminarEnvioAdmin = async function(sucursal, index, monto) {
             if (!confirm(`¿Estás seguro de eliminar este envío de ₡${monto.toLocaleString('es-CR')}?\n\nSe restará de la caja de la sucursal.`)) return;
             
@@ -389,10 +533,8 @@
                     const data = snap.data();
                     let envios = data.admin_envios || [];
                     
-                    // Quitar el envío de la lista
                     envios.splice(index, 1);
                     
-                    // Actualizar Firebase restando el dinero
                     await updateDoc(cajaRef, {
                         admin_envios: envios,
                         depositos: increment(-monto),
