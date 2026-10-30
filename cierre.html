@@ -836,6 +836,9 @@
         let unsubscribeFacturas = null;
         let unsubscribeEstado = null;
         let unsubscribeInventario = null; 
+        
+        // 🔒 CANDADO DE SEGURIDAD: Evita sobreescribir con ceros mientras carga
+        let cargaInicialCompletada = false; 
 
         function obtenerFechaHoy() {
             const d = new Date();
@@ -1021,18 +1024,29 @@
         function iniciarSincronizacionNube() {
             // 1. Escuchar Estado del Día (Caja, Gastos, Depósitos)
             estadoDiaRef = doc(db, "estado_dia", sucursalActual);
+            
             unsubscribeEstado = onSnapshot(estadoDiaRef, (docSnap) => {
                 if (modoEdicionCierre) return;
                 
                 if (docSnap.exists()) {
                     const data = docSnap.data();
-                    document.getElementById('cajaInicioBase').value = (data.caja_inicio || 0).toLocaleString('es-CR');
+                    
+                    // 🔒 PROTECCIÓN: No sobreescribir si el usuario está escribiendo
+                    const inputCajaBase = document.getElementById('cajaInicioBase');
+                    if (document.activeElement !== inputCajaBase) {
+                        inputCajaBase.value = (data.caja_inicio || 0).toLocaleString('es-CR');
+                    }
+                    
                     document.getElementById('ventas').value = (data.ventas || 0).toLocaleString('es-CR');
                     listaGastosDia = data.gastos || [];
                     listaDepositosDia = data.depositos || [];
                 } else {
                     setDoc(estadoDiaRef, { caja_inicio: 0, ventas: 0, gastos: [], depositos: [] }, { merge: true });
                 }
+                
+                // ✅ ABRIMOS EL CANDADO: Ya leímos la base de datos real
+                cargaInicialCompletada = true;
+
                 actualizarTablaGastos();
                 actualizarTablaDepositos();
                 calcularCajaDinamica();
@@ -1062,7 +1076,7 @@
                 }
             });
 
-            // ✅ 4. NUEVO: Escuchar Contador de Facturas en tiempo real (Sincronización PC-Teléfono)
+            // ✅ 4. Escuchar Contador de Facturas en tiempo real (Sincronización PC-Teléfono)
             onSnapshot(doc(db, "contadores_facturas", sucursalActual), (docSnap) => {
                 if (docSnap.exists()) {
                     const ultimo = parseInt(docSnap.data().ultimo_numero) || 0;
@@ -1586,6 +1600,12 @@
             document.getElementById('cierreMano').value = "₡" + disponibleCaja.toLocaleString('es-CR');
             document.getElementById('depositosRecibidosTxt').value = "₡" + depositosTotales.toLocaleString('es-CR');
             
+            // 🔒 CANDADO: Si la carga inicial no ha terminado, NO guardamos nada en Firebase
+            if (!cargaInicialCompletada) {
+                console.log("Esperando datos de Firebase... no se guarda todavía.");
+                return; 
+            }
+
             clearTimeout(temporizadorFirestore);
             temporizadorFirestore = setTimeout(() => {
                 if (estadoDiaRef && !modoEdicionCierre) {
