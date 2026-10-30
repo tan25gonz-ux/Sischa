@@ -819,7 +819,6 @@
         let sucursalActual = "Desconocida";
         let inyeccionesAdmin = 0; 
         
-        // ✅ NUEVA VARIABLE PARA LA DEUDA OPTIMIZADA
         let deudaMovimientosBase = 0; 
 
         let temporizadorFirestore = null;
@@ -980,7 +979,7 @@
                 await cargarPreciosDesdeFirebase();
                 await cargarUltimoCierre();
                 await obtenerSiguienteNumeroFacturaActual();
-                await inicializarDeudaRealTime(); // ✅ NUEVA FUNCIÓN
+                await inicializarDeudaRealTime(); 
 
                 setTimeout(() => { initFirma(); detectarTrazo(); actualizarBadgeFirma(); }, 100);
 
@@ -989,13 +988,11 @@
                     if (docSnap.exists()) {
                         const data = docSnap.data();
                         
-                        // Actualizamos la base de la deuda si cambia
                         if (data.deuda_movimientos !== undefined) {
                             deudaMovimientosBase = data.deuda_movimientos;
                             actualizarUIVisualDeuda();
                         }
 
-                        // Actualizar dinero del admin
                         if (data.admin_envios && Array.isArray(data.admin_envios)) {
                             const nuevoTotal = data.admin_envios.reduce((sum, envio) => sum + (parseFloat(envio.monto) || 0), 0);
                             if (nuevoTotal !== inyeccionesAdmin) {
@@ -1008,8 +1005,6 @@
                         }
                     }
                 });
-
-                // ❌ SE ELIMINÓ EL setInterval DE 15 MINUTOS ❌
 
             } else {
                 if (unsubscribeFacturas) unsubscribeFacturas();
@@ -1041,7 +1036,7 @@
                 actualizarTablaGastos();
                 actualizarTablaDepositos();
                 calcularCajaDinamica();
-                actualizarUIVisualDeuda(); // ✅ ACTUALIZA DEUDA CUANDO CAMBIAN DEPÓSITOS
+                actualizarUIVisualDeuda(); 
             });
 
             // 2. Escuchar Facturas del día actual
@@ -1066,6 +1061,19 @@
                     renderizarInventario();
                 }
             });
+
+            // ✅ 4. NUEVO: Escuchar Contador de Facturas en tiempo real (Sincronización PC-Teléfono)
+            onSnapshot(doc(db, "contadores_facturas", sucursalActual), (docSnap) => {
+                if (docSnap.exists()) {
+                    const ultimo = parseInt(docSnap.data().ultimo_numero) || 0;
+                    const inputNumFactura = document.getElementById('numFacturaCliente');
+                    
+                    // Solo actualizamos el valor si el usuario no está escribiendo en ese campo justo ahora
+                    if (document.activeElement !== inputNumFactura) {
+                        inputNumFactura.value = ultimo + 1;
+                    }
+                }
+            });
         }
 
         // =====================================================
@@ -1076,12 +1084,10 @@
                 const docRef = doc(db, "cajas_en_vivo", sucursalActual);
                 const docSnap = await getDoc(docRef);
                 
-                // Si el documento ya tiene calculada la deuda base, no gastamos lecturas.
                 if (docSnap.exists() && docSnap.data().deuda_movimientos !== undefined) {
                     return; 
                 }
 
-                // Si es la primera vez, calculamos la deuda histórica UNA VEZ y la guardamos.
                 const q = query(collection(db, "movimientos_cuenta"), where("sucursal", "==", sucursalActual));
                 const querySnapshot = await getDocs(q);
                 let sumaMovimientos = 0;
@@ -1097,13 +1103,11 @@
             } catch (error) { console.error("Error inicializando deuda:", error); }
         }
 
-        // Actualiza la pantalla sumando la deuda base + los depósitos del día
         function actualizarUIVisualDeuda() {
             const total = deudaMovimientosBase + obtenerTotalDepositos();
             document.getElementById('deudaTotalTxt').innerText = total.toLocaleString('es-CR');
         }
 
-        // Actualiza la nube con matemática simple (0 lecturas)
         async function sumarDeudaMovimiento(monto, esSalida) {
             const docRef = doc(db, "cajas_en_vivo", sucursalActual);
             try {
@@ -1263,7 +1267,7 @@
                 actualizarTablaGastos();
                 actualizarTablaDepositos();
                 calcularCajaDinamica();
-                actualizarUIVisualDeuda(); // ✅ ACTUALIZA DEUDA AL EDITAR
+                actualizarUIVisualDeuda(); 
 
                 document.getElementById('bannerFechaCierre').innerText = fechaCierre;
                 document.getElementById('bannerEdicionCierre').style.display = 'flex';
@@ -1469,7 +1473,10 @@
                 await actualizarInventarioFirestore(deltaDesdeDetalles(materialesIngresados, +1));
 
                 limpiarFormularioFactura();
-                await obtenerSiguienteNumeroFacturaActual();
+                
+                // NOTA: Ya no llamamos a obtenerSiguienteNumeroFacturaActual() aquí
+                // porque el onSnapshot del contador lo hará automáticamente en todos los dispositivos.
+
                 document.getElementById('cedulaCliente').focus();
 
                 alert(`✅ Factura #${numFactura} guardada.`);
@@ -1501,13 +1508,11 @@
 
             document.getElementById('depositoDescInput').value = "";
             document.getElementById('depositoMontoInput').value = "";
-            // La UI de la deuda se actualiza automáticamente por el onSnapshot de estado_dia
         };
 
         window.eliminarDepositoLista = async (index) => {
             listaDepositosDia.splice(index, 1);
             await updateDoc(estadoDiaRef, { depositos: listaDepositosDia });
-            // La UI de la deuda se actualiza automáticamente por el onSnapshot de estado_dia
         };
 
         function obtenerTotalDepositos() { return listaDepositosDia.reduce((sum, d) => sum + d.monto, 0); }
@@ -1986,7 +1991,6 @@
                     timestamp: serverTimestamp()
                 });
                 
-                // ✅ ACTUALIZAMOS LA DEUDA CON MATEMÁTICA SIMPLE (0 LECTURAS)
                 if (tipo === "Salida_Venta") await sumarDeudaMovimiento(monto, true);
                 else if (tipo === "Deposito") await sumarDeudaMovimiento(monto, false);
 
