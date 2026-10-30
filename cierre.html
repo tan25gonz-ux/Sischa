@@ -760,7 +760,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-        import { getFirestore, doc, getDoc, setDoc, updateDoc, collection, addDoc, deleteDoc, writeBatch, serverTimestamp, query, where, getDocs, orderBy, limit, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        import { getFirestore, doc, getDoc, setDoc, updateDoc, collection, addDoc, deleteDoc, writeBatch, serverTimestamp, query, where, getDocs, orderBy, limit, onSnapshot, increment } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyCi409CkmXBbun7-POejbVaIiThK2nZ1JY",
@@ -830,10 +830,10 @@
 
         let inventarioActual = {};
 
-        // ✅ REFERENCIAS PARA SINCRONIZACIÓN EN LA NUBE
         let estadoDiaRef = null;
         let unsubscribeFacturas = null;
         let unsubscribeEstado = null;
+        let unsubscribeInventario = null; // ✅ NUEVO
 
         function obtenerFechaHoy() {
             const d = new Date();
@@ -975,7 +975,6 @@
                 iniciarSincronizacionNube();
 
                 await cargarPreciosDesdeFirebase();
-                await cargarInventario();
                 await calcularDeudaTotal();
                 await cargarUltimoCierre();
                 await obtenerSiguienteNumeroFacturaActual();
@@ -999,23 +998,38 @@
                     }
                 });
 
+                // ✅ REFRESCO SUAVE AUTOMÁTICO CADA 15 MINUTOS
+                if (window.refrescoAutomatico) clearInterval(window.refrescoAutomatico);
+                window.refrescoAutomatico = setInterval(async () => {
+                    if (modoEdicionCierre) return; 
+                    try {
+                        await cargarPreciosDesdeFirebase();
+                        await calcularDeudaTotal();
+                        await cargarUltimoCierre();
+                        await obtenerSiguienteNumeroFacturaActual();
+                    } catch (e) {
+                        console.error("Error en auto-refresco:", e);
+                    }
+                }, 15 * 60 * 1000); 
+
             } else {
-                // Desconectar escuchadores al salir
                 if (unsubscribeFacturas) unsubscribeFacturas();
                 if (unsubscribeEstado) unsubscribeEstado();
+                if (unsubscribeInventario) unsubscribeInventario();
+                if (window.refrescoAutomatico) clearInterval(window.refrescoAutomatico);
                 document.getElementById('login-section').style.display = 'flex';
                 document.getElementById('modulo-principal').style.display = 'none';
             }
         });
 
         // =====================================================
-        // ☁️ SINCRONIZACIÓN EN LA NUBE (Reemplazo de localStorage)
+        // ☁️ SINCRONIZACIÓN EN LA NUBE
         // =====================================================
         function iniciarSincronizacionNube() {
             // 1. Escuchar Estado del Día (Caja, Gastos, Depósitos)
             estadoDiaRef = doc(db, "estado_dia", sucursalActual);
             unsubscribeEstado = onSnapshot(estadoDiaRef, (docSnap) => {
-                if (modoEdicionCierre) return; // No sobreescribir si estamos editando un cierre pasado
+                if (modoEdicionCierre) return;
                 
                 if (docSnap.exists()) {
                     const data = docSnap.data();
@@ -1024,7 +1038,6 @@
                     listaGastosDia = data.gastos || [];
                     listaDepositosDia = data.depositos || [];
                 } else {
-                    // Si no existe, crear documento inicial
                     setDoc(estadoDiaRef, { caja_inicio: 0, ventas: 0, gastos: [], depositos: [] }, { merge: true });
                 }
                 actualizarTablaGastos();
@@ -1037,7 +1050,7 @@
             const qFacturas = query(collection(db, "facturas_compras"), where("sucursal", "==", sucursalActual), where("fecha", "==", hoy));
             
             unsubscribeFacturas = onSnapshot(qFacturas, (snapshot) => {
-                if (modoEdicionCierre) return; // No sobreescribir si estamos editando
+                if (modoEdicionCierre) return;
 
                 facturasDelDia = [];
                 snapshot.forEach(doc => {
@@ -1046,19 +1059,19 @@
                 facturasDelDia.sort((a, b) => (parseInt(a.num_factura) || 0) - (parseInt(b.num_factura) || 0));
                 actualizarTablaGeneralDia();
             });
+
+            // 3. ✅ NUEVO: Escuchar Inventario en tiempo real
+            unsubscribeInventario = onSnapshot(doc(db, "inventario", sucursalActual), (docSnap) => {
+                if (docSnap.exists()) {
+                    inventarioActual = docSnap.data().materiales || {};
+                    renderizarInventario();
+                }
+            });
         }
 
         // =====================================================
         // INVENTARIO
         // =====================================================
-        async function cargarInventario() {
-            try {
-                const snap = await getDoc(doc(db, "inventario", sucursalActual));
-                inventarioActual = snap.exists() ? (snap.data().materiales || {}) : {};
-                renderizarInventario();
-            } catch (e) { console.error(e); }
-        }
-
         function renderizarInventario() {
             const tbody = document.getElementById('body-lista-inventario');
             if (!tbody) return;
@@ -1093,20 +1106,20 @@
 
         async function actualizarInventarioFirestore(delta) {
             if (!delta || Object.keys(delta).length === 0) return;
-            const nuevos = { ...inventarioActual };
+            
+            // ✅ USAR INCREMENT PARA EVITAR SOBRESCRIBIR DATOS DESACTUALIZADOS
+            const actualizacionesMateriales = {};
             Object.entries(delta).forEach(([mat, kg]) => {
-                nuevos[mat] = (nuevos[mat] || 0) + kg;
-                if (Math.abs(nuevos[mat]) < 0.0001) nuevos[mat] = 0;
+                actualizacionesMateriales[mat] = increment(kg);
             });
-            inventarioActual = nuevos;
-            renderizarInventario();
+            
             try {
                 await setDoc(doc(db, "inventario", sucursalActual), {
-                    sucursal: sucursalActual,
-                    materiales: inventarioActual,
+                    materiales: actualizacionesMateriales,
                     ultima_actualizacion: serverTimestamp()
                 }, { merge: true });
-            } catch (e) { console.error(e); }
+                // La UI se actualizará sola gracias al onSnapshot del inventario
+            } catch (e) { console.error("Error actualizando inventario:", e); }
         }
 
         // =====================================================
@@ -1116,7 +1129,6 @@
             try {
                 const snap = await getDoc(doc(db, "contadores_facturas", sucursalActual));
                 const ultimo = snap.exists() ? (parseInt(snap.data().ultimo_numero) || 0) : 0;
-                
                 const numSeguro = ultimo > 10000 ? 1 : ultimo + 1;
                 document.getElementById('numFacturaCliente').value = numSeguro;
             } catch (error) { console.error(error); }
@@ -1322,7 +1334,10 @@
             catch (e) { alert("Error: " + e.message); }
         };
 
-        window.logout = () => signOut(auth);
+        window.logout = () => {
+            if (window.refrescoAutomatico) clearInterval(window.refrescoAutomatico);
+            signOut(auth);
+        };
 
         window.validarCedulaTSE = async function() {
             const cedulaInput = document.getElementById('cedulaCliente').value.trim();
@@ -1346,7 +1361,7 @@
         };
 
         // =====================================================
-        // GUARDAR FACTURA (Se guarda directo en la nube)
+        // GUARDAR FACTURA
         // =====================================================
         window.guardarFacturaCompletaCliente = async function() {
             const cedula = document.getElementById('cedulaCliente').value.trim();
@@ -1402,7 +1417,6 @@
                     sucursal: sucursalActual, fecha: fecha, uid_trabajador: uidTrabajador, timestamp: serverTimestamp()
                 };
 
-                // ✅ GUARDAR EN LA NUBE (El onSnapshot la traerá de vuelta y actualizará la tabla)
                 await addDoc(collection(db, "facturas_compras"), facturaObj);
                 await actualizarInventarioFirestore(deltaDesdeDetalles(materialesIngresados, +1));
 
@@ -1410,7 +1424,7 @@
                 await obtenerSiguienteNumeroFacturaActual();
                 document.getElementById('cedulaCliente').focus();
 
-                alert(`✅ Factura #${numFactura} guardada y sincronizada.`);
+                alert(`✅ Factura #${numFactura} guardada.`);
             } catch (error) {
                 console.error(error);
                 alert("❌ Error: " + error.message);
@@ -1435,7 +1449,6 @@
             if (monto <= 0) { alert("⚠️ Ingrese monto válido."); return; }
             
             listaDepositosDia.push({ descripcion: desc || "Entrada / Depósito", monto: monto });
-            // ✅ ACTUALIZAR NUBE
             await updateDoc(estadoDiaRef, { depositos: listaDepositosDia });
 
             document.getElementById('depositoDescInput').value = "";
@@ -1445,7 +1458,6 @@
 
         window.eliminarDepositoLista = async (index) => {
             listaDepositosDia.splice(index, 1);
-            // ✅ ACTUALIZAR NUBE
             await updateDoc(estadoDiaRef, { depositos: listaDepositosDia });
             calcularDeudaTotal();
         };
@@ -1470,7 +1482,6 @@
             if (!desc || monto <= 0) { alert("⚠️ Ingrese descripción y monto."); return; }
             
             listaGastosDia.push({ descripcion: desc, monto: monto });
-            // ✅ ACTUALIZAR NUBE
             await updateDoc(estadoDiaRef, { gastos: listaGastosDia });
 
             document.getElementById('gastoDescInput').value = "";
@@ -1479,7 +1490,6 @@
 
         window.eliminarGastoLista = async (index) => {
             listaGastosDia.splice(index, 1);
-            // ✅ ACTUALIZAR NUBE
             await updateDoc(estadoDiaRef, { gastos: listaGastosDia });
         };
 
@@ -1526,10 +1536,7 @@
             clearTimeout(temporizadorFirestore);
             temporizadorFirestore = setTimeout(() => {
                 if (estadoDiaRef && !modoEdicionCierre) {
-                    updateDoc(estadoDiaRef, { 
-                        caja_inicio: inicioBase, 
-                        ventas: ventas 
-                    });
+                    updateDoc(estadoDiaRef, { caja_inicio: inicioBase, ventas: ventas });
                 }
                 actualizarCajaFirestore(disponibleCaja);
             }, 1000);
@@ -1626,13 +1633,12 @@
                     await actualizarInventarioFirestore(deltaDesdeDetalles(f.detalles_materiales, -1));
                 } catch (e) { alert("Error: " + e.message); return; }
                 
-                // ✅ Ajustar contador
                 await ajustarContadorFacturas(f.num_factura);
             }
         };
 
         // =====================================================
-        // FACTURA A4 (Firma más grande)
+        // FACTURA A4
         // =====================================================
         function generarHTMLFactura(fact, fecha) {
             const vencimiento = new Date(); vencimiento.setDate(vencimiento.getDate() + 15);
@@ -1876,9 +1882,8 @@
                     total_facturas: facturasDelDia.length, estado: "Pendiente", timestamp: serverTimestamp()
                 });
 
-                // ✅ TRASPASO DE CAJA Y LIMPIEZA EN LA NUBE
                 await setDoc(estadoDiaRef, {
-                    caja_inicio: cierreMano, // El efectivo final se vuelve la base del nuevo día
+                    caja_inicio: cierreMano,
                     ventas: 0,
                     gastos: [],
                     depositos: []
