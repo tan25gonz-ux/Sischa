@@ -607,7 +607,7 @@
                     <div class="field-row cols-3">
                         <div>
                             <label>Inicio de Caja Base</label>
-                            <input type="text" id="cajaInicioBase" placeholder="0" oninput="formatearInputMoneda(this)" onchange="calcularCajaDinamica()">
+                            <input type="text" id="cajaInicioBase" placeholder="0" oninput="formatearInputMoneda(this)">
                         </div>
                         <div>
                             <label>💵 Caja Disponible Hoy</label>
@@ -615,7 +615,7 @@
                         </div>
                         <div>
                             <label>Ventas del Día</label>
-                            <input type="text" id="ventas" placeholder="0" oninput="formatearInputMoneda(this)" onchange="calcularCajaDinamica()">
+                            <input type="text" id="ventas" placeholder="0" oninput="formatearInputMoneda(this)">
                         </div>
                         <div>
                             <label>Plata Agregada / Depósitos</label>
@@ -830,6 +830,11 @@
 
         let inventarioActual = {};
 
+        // ✅ REFERENCIAS PARA SINCRONIZACIÓN EN LA NUBE
+        let estadoDiaRef = null;
+        let unsubscribeFacturas = null;
+        let unsubscribeEstado = null;
+
         function obtenerFechaHoy() {
             const d = new Date();
             const yyyy = d.getFullYear();
@@ -966,15 +971,8 @@
                 document.getElementById('fecha').value = obtenerFechaHoy();
                 document.getElementById('fechaMovimiento').value = obtenerFechaHoy();
 
-                const facturasGuardadas = localStorage.getItem(`facturas_${sucursalActual}`);
-                if (facturasGuardadas) facturasDelDia = JSON.parse(facturasGuardadas);
-                const gastosGuardados = localStorage.getItem(`gastos_${sucursalActual}`);
-                if (gastosGuardados) listaGastosDia = JSON.parse(gastosGuardados);
-                const depositosGuardados = localStorage.getItem(`depositos_${sucursalActual}`);
-                if (depositosGuardados) listaDepositosDia = JSON.parse(depositosGuardados);
-
-                document.getElementById('cajaInicioBase').value = localStorage.getItem(`cajaInicioBase_${sucursalActual}`) || "";
-                document.getElementById('ventas').value = localStorage.getItem(`ventas_${sucursalActual}`) || "";
+                // ✅ INICIALIZAR SINCRONIZACIÓN EN LA NUBE
+                iniciarSincronizacionNube();
 
                 await cargarPreciosDesdeFirebase();
                 await cargarInventario();
@@ -982,9 +980,6 @@
                 await cargarUltimoCierre();
                 await obtenerSiguienteNumeroFacturaActual();
 
-                actualizarTablaGeneralDia();
-                actualizarTablaGastos();
-                actualizarTablaDepositos();
                 setTimeout(() => { initFirma(); detectarTrazo(); actualizarBadgeFirma(); }, 100);
 
                 // ESCUCHADOR EN TIEMPO REAL PARA EL DINERO DEL ADMIN
@@ -995,7 +990,7 @@
                             const nuevoTotal = data.admin_envios.reduce((sum, envio) => sum + (parseFloat(envio.monto) || 0), 0);
                             if (nuevoTotal !== inyeccionesAdmin) {
                                 inyeccionesAdmin = nuevoTotal;
-                                calcularCajaDinamica(); // Recalcula y actualiza la pantalla al instante
+                                calcularCajaDinamica();
                             }
                         } else if (!data.admin_envios && inyeccionesAdmin !== 0) {
                             inyeccionesAdmin = 0;
@@ -1005,10 +1000,53 @@
                 });
 
             } else {
+                // Desconectar escuchadores al salir
+                if (unsubscribeFacturas) unsubscribeFacturas();
+                if (unsubscribeEstado) unsubscribeEstado();
                 document.getElementById('login-section').style.display = 'flex';
                 document.getElementById('modulo-principal').style.display = 'none';
             }
         });
+
+        // =====================================================
+        // ☁️ SINCRONIZACIÓN EN LA NUBE (Reemplazo de localStorage)
+        // =====================================================
+        function iniciarSincronizacionNube() {
+            // 1. Escuchar Estado del Día (Caja, Gastos, Depósitos)
+            estadoDiaRef = doc(db, "estado_dia", sucursalActual);
+            unsubscribeEstado = onSnapshot(estadoDiaRef, (docSnap) => {
+                if (modoEdicionCierre) return; // No sobreescribir si estamos editando un cierre pasado
+                
+                if (docSnap.exists()) {
+                    const data = docSnap.data();
+                    document.getElementById('cajaInicioBase').value = (data.caja_inicio || 0).toLocaleString('es-CR');
+                    document.getElementById('ventas').value = (data.ventas || 0).toLocaleString('es-CR');
+                    listaGastosDia = data.gastos || [];
+                    listaDepositosDia = data.depositos || [];
+                } else {
+                    // Si no existe, crear documento inicial
+                    setDoc(estadoDiaRef, { caja_inicio: 0, ventas: 0, gastos: [], depositos: [] }, { merge: true });
+                }
+                actualizarTablaGastos();
+                actualizarTablaDepositos();
+                calcularCajaDinamica();
+            });
+
+            // 2. Escuchar Facturas del día actual
+            const hoy = obtenerFechaHoy();
+            const qFacturas = query(collection(db, "facturas_compras"), where("sucursal", "==", sucursalActual), where("fecha", "==", hoy));
+            
+            unsubscribeFacturas = onSnapshot(qFacturas, (snapshot) => {
+                if (modoEdicionCierre) return; // No sobreescribir si estamos editando
+
+                facturasDelDia = [];
+                snapshot.forEach(doc => {
+                    facturasDelDia.push({ ...doc.data(), _docId: doc.id });
+                });
+                facturasDelDia.sort((a, b) => (parseInt(a.num_factura) || 0) - (parseInt(b.num_factura) || 0));
+                actualizarTablaGeneralDia();
+            });
+        }
 
         // =====================================================
         // INVENTARIO
@@ -1079,7 +1117,6 @@
                 const snap = await getDoc(doc(db, "contadores_facturas", sucursalActual));
                 const ultimo = snap.exists() ? (parseInt(snap.data().ultimo_numero) || 0) : 0;
                 
-                // Si el número es mayor a 10000, lo reseteamos a 1
                 const numSeguro = ultimo > 10000 ? 1 : ultimo + 1;
                 document.getElementById('numFacturaCliente').value = numSeguro;
             } catch (error) { console.error(error); }
@@ -1087,7 +1124,6 @@
 
         async function ajustarContadorFacturas(numeroBorrado) {
             try {
-                // ✅ SOLUCIÓN DEFINITIVA: En lugar de buscar en toda la BD, solo restamos 1 al número que se borró
                 let numRestar = parseInt(numeroBorrado) - 1;
                 if (isNaN(numRestar) || numRestar < 0) numRestar = 0;
 
@@ -1129,7 +1165,7 @@
         window.abrirModalEditarCierre = async function() {
             if (modoEdicionCierre) { alert("⚠️ Ya estás editando un cierre."); return; }
             if (!ultimoCierreId) { alert("⚠️ No hay cierre previo."); return; }
-            if (!confirm("⚠️ ¿Cargar el último cierre para modificarlo?")) return;
+            if (!confirm("⚠️ ¿Cargar el último cierre para modificarlo?\n\n(Se pausará la sincronización en la nube mientras editas)")) return;
 
             try {
                 const snap = await getDoc(doc(db, "revisiones_faltantes", ultimoCierreId));
@@ -1164,12 +1200,6 @@
                 document.getElementById('ventas').value = (parseFloat(data.total_ventas) || 0).toLocaleString('es-CR');
                 document.getElementById('fecha').value = fechaCierre;
 
-                localStorage.setItem(`facturas_${sucursalActual}`, JSON.stringify(facturasDelDia));
-                localStorage.setItem(`gastos_${sucursalActual}`, JSON.stringify(listaGastosDia));
-                localStorage.setItem(`depositos_${sucursalActual}`, JSON.stringify(listaDepositosDia));
-                localStorage.setItem(`cajaInicioBase_${sucursalActual}`, document.getElementById('cajaInicioBase').value);
-                localStorage.setItem(`ventas_${sucursalActual}`, document.getElementById('ventas').value);
-
                 actualizarTablaGeneralDia();
                 actualizarTablaGastos();
                 actualizarTablaDepositos();
@@ -1197,21 +1227,8 @@
 
         window.cancelarEdicionCierre = function() {
             if (!confirm("¿Cancelar la edición?")) return;
-            limpiarEstadoEdicion();
             location.reload();
         };
-
-        function limpiarEstadoEdicion() {
-            modoEdicionCierre = false;
-            cierreIdEnEdicion = null;
-            facturasDocIdsOriginales = [];
-            facturasEliminadasEnEdicion = [];
-            localStorage.removeItem(`facturas_${sucursalActual}`);
-            localStorage.removeItem(`gastos_${sucursalActual}`);
-            localStorage.removeItem(`depositos_${sucursalActual}`);
-            localStorage.removeItem(`cajaInicioBase_${sucursalActual}`);
-            localStorage.removeItem(`ventas_${sucursalActual}`);
-        }
 
         // =====================================================
         // PRECIOS
@@ -1329,7 +1346,7 @@
         };
 
         // =====================================================
-        // GUARDAR FACTURA (con validación de firma)
+        // GUARDAR FACTURA (Se guarda directo en la nube)
         // =====================================================
         window.guardarFacturaCompletaCliente = async function() {
             const cedula = document.getElementById('cedulaCliente').value.trim();
@@ -1385,22 +1402,15 @@
                     sucursal: sucursalActual, fecha: fecha, uid_trabajador: uidTrabajador, timestamp: serverTimestamp()
                 };
 
-                const docRefNew = await addDoc(collection(db, "facturas_compras"), facturaObj);
+                // ✅ GUARDAR EN LA NUBE (El onSnapshot la traerá de vuelta y actualizará la tabla)
+                await addDoc(collection(db, "facturas_compras"), facturaObj);
                 await actualizarInventarioFirestore(deltaDesdeDetalles(materialesIngresados, +1));
 
-                facturasDelDia.push({
-                    num_factura: numFactura, cedula: cedulaLimpia, nombre,
-                    detalles_materiales: materialesIngresados, total_factura: totalFactura, firma: firmaData,
-                    _docId: docRefNew.id
-                });
-                localStorage.setItem(`facturas_${sucursalActual}`, JSON.stringify(facturasDelDia));
-
-                actualizarTablaGeneralDia();
                 limpiarFormularioFactura();
                 await obtenerSiguienteNumeroFacturaActual();
                 document.getElementById('cedulaCliente').focus();
 
-                alert(`✅ Factura #${numFactura} guardada.`);
+                alert(`✅ Factura #${numFactura} guardada y sincronizada.`);
             } catch (error) {
                 console.error(error);
                 alert("❌ Error: " + error.message);
@@ -1419,22 +1429,24 @@
         // =====================================================
         // DEPOSITOS / GASTOS
         // =====================================================
-        window.agregarDepositoLista = () => {
+        window.agregarDepositoLista = async () => {
             const desc = document.getElementById('depositoDescInput').value.trim();
             const monto = obtenerNumeroLimpio('depositoMontoInput');
             if (monto <= 0) { alert("⚠️ Ingrese monto válido."); return; }
+            
             listaDepositosDia.push({ descripcion: desc || "Entrada / Depósito", monto: monto });
-            localStorage.setItem(`depositos_${sucursalActual}`, JSON.stringify(listaDepositosDia));
+            // ✅ ACTUALIZAR NUBE
+            await updateDoc(estadoDiaRef, { depositos: listaDepositosDia });
+
             document.getElementById('depositoDescInput').value = "";
             document.getElementById('depositoMontoInput').value = "";
-            actualizarTablaDepositos();
             calcularDeudaTotal();
         };
 
-        window.eliminarDepositoLista = (index) => {
+        window.eliminarDepositoLista = async (index) => {
             listaDepositosDia.splice(index, 1);
-            localStorage.setItem(`depositos_${sucursalActual}`, JSON.stringify(listaDepositosDia));
-            actualizarTablaDepositos();
+            // ✅ ACTUALIZAR NUBE
+            await updateDoc(estadoDiaRef, { depositos: listaDepositosDia });
             calcularDeudaTotal();
         };
 
@@ -1452,21 +1464,23 @@
             calcularCajaDinamica();
         }
 
-        window.agregarGastoLista = () => {
+        window.agregarGastoLista = async () => {
             const desc = document.getElementById('gastoDescInput').value.trim();
             const monto = obtenerNumeroLimpio('gastoMontoInput');
             if (!desc || monto <= 0) { alert("⚠️ Ingrese descripción y monto."); return; }
+            
             listaGastosDia.push({ descripcion: desc, monto: monto });
-            localStorage.setItem(`gastos_${sucursalActual}`, JSON.stringify(listaGastosDia));
+            // ✅ ACTUALIZAR NUBE
+            await updateDoc(estadoDiaRef, { gastos: listaGastosDia });
+
             document.getElementById('gastoDescInput').value = "";
             document.getElementById('gastoMontoInput').value = "";
-            actualizarTablaGastos();
         };
 
-        window.eliminarGastoLista = (index) => {
+        window.eliminarGastoLista = async (index) => {
             listaGastosDia.splice(index, 1);
-            localStorage.setItem(`gastos_${sucursalActual}`, JSON.stringify(listaGastosDia));
-            actualizarTablaGastos();
+            // ✅ ACTUALIZAR NUBE
+            await updateDoc(estadoDiaRef, { gastos: listaGastosDia });
         };
 
         function obtenerTotalGastos() { return listaGastosDia.reduce((sum, g) => sum + g.monto, 0); }
@@ -1500,22 +1514,25 @@
             const inicioBase = obtenerNumeroLimpio('cajaInicioBase');
             const ventas = obtenerNumeroLimpio('ventas');
             const depositosLocales = obtenerTotalDepositos();
-            
             const depositosTotales = depositosLocales + inyeccionesAdmin; 
-            
             const pagoFacturas = totalAcumuladoComprasDia;
             const gastosFact = obtenerTotalGastos();
             const disponibleCaja = (inicioBase + depositosTotales + ventas) - (pagoFacturas + gastosFact);
             
             document.getElementById('cajaDisponibleActual').value = "₡" + disponibleCaja.toLocaleString('es-CR');
             document.getElementById('cierreMano').value = "₡" + disponibleCaja.toLocaleString('es-CR');
-            
             document.getElementById('depositosRecibidosTxt').value = "₡" + depositosTotales.toLocaleString('es-CR');
             
-            localStorage.setItem(`cajaInicioBase_${sucursalActual}`, document.getElementById('cajaInicioBase').value);
-            localStorage.setItem(`ventas_${sucursalActual}`, document.getElementById('ventas').value);
             clearTimeout(temporizadorFirestore);
-            temporizadorFirestore = setTimeout(() => actualizarCajaFirestore(disponibleCaja), 1000);
+            temporizadorFirestore = setTimeout(() => {
+                if (estadoDiaRef && !modoEdicionCierre) {
+                    updateDoc(estadoDiaRef, { 
+                        caja_inicio: inicioBase, 
+                        ventas: ventas 
+                    });
+                }
+                actualizarCajaFirestore(disponibleCaja);
+            }, 1000);
         };
 
         async function actualizarCajaFirestore(disponible) {
@@ -1601,7 +1618,6 @@
                 if (!confirm(`¿Quitar la factura #${f.num_factura}?`)) return;
                 if (f._docId) facturasEliminadasEnEdicion.push(f);
                 facturasDelDia.splice(index, 1);
-                localStorage.setItem(`facturas_${sucursalActual}`, JSON.stringify(facturasDelDia));
                 actualizarTablaGeneralDia();
             } else {
                 if (!confirm(`¿Eliminar definitivamente la factura #${f.num_factura}?\n\nSe borrará del sistema y se descontará del inventario.`)) return;
@@ -1609,13 +1625,9 @@
                     if (f._docId) await deleteDoc(doc(db, "facturas_compras", f._docId));
                     await actualizarInventarioFirestore(deltaDesdeDetalles(f.detalles_materiales, -1));
                 } catch (e) { alert("Error: " + e.message); return; }
-                facturasDelDia.splice(index, 1);
-                localStorage.setItem(`facturas_${sucursalActual}`, JSON.stringify(facturasDelDia));
                 
-                // ✅ AQUÍ SE LLAMA A LA NUEVA FUNCIÓN QUE SOLO RESTA 1 AL NÚMERO BORRADO
+                // ✅ Ajustar contador
                 await ajustarContadorFacturas(f.num_factura);
-                
-                actualizarTablaGeneralDia();
             }
         };
 
@@ -1685,7 +1697,7 @@
         }
 
         // =====================================================
-        // TICKET 80MM (DISEÑO CENTRADO Y AGRANDADO)
+        // TICKET 80MM
         // =====================================================
         function generarHTMLFacturaTermica(fact, fecha) {
             const norm = (texto) => String(texto == null ? '' : texto).normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/₡/g, 'CRC');
@@ -1853,28 +1865,32 @@
             btn.disabled = true; btn.innerText = "⏳ Subiendo...";
             const fecha = document.getElementById('fecha').value;
             try {
+                const cierreMano = obtenerNumeroLimpio('cierreMano');
+                
                 await addDoc(collection(db, "revisiones_faltantes"), {
                     uid_trabajador: uidTrabajador, sucursal: sucursalActual, fecha: fecha,
                     caja_inicio: obtenerNumeroLimpio('cajaInicioBase'), total_ventas: obtenerNumeroLimpio('ventas'),
                     total_depositos: obtenerTotalDepositos() + inyeccionesAdmin, detalles_depositos: listaDepositosDia,
                     pago_materiales: totalAcumuladoComprasDia, gastos_facturas: obtenerTotalGastos(),
-                    detalles_gastos: listaGastosDia, cierre_mano: obtenerNumeroLimpio('cierreMano'),
+                    detalles_gastos: listaGastosDia, cierre_mano: cierreMano,
                     total_facturas: facturasDelDia.length, estado: "Pendiente", timestamp: serverTimestamp()
                 });
 
-                // ✅ LIMPIAR ENVÍOS DEL ADMIN AL CERRAR EL DÍA
+                // ✅ TRASPASO DE CAJA Y LIMPIEZA EN LA NUBE
+                await setDoc(estadoDiaRef, {
+                    caja_inicio: cierreMano, // El efectivo final se vuelve la base del nuevo día
+                    ventas: 0,
+                    gastos: [],
+                    depositos: []
+                });
+
                 await updateDoc(doc(db, "cajas_en_vivo", sucursalActual), {
                     admin_envios: [],
                     depositos: 0,
                     caja_disponible: 0
                 });
 
-                localStorage.removeItem(`facturas_${sucursalActual}`);
-                localStorage.removeItem(`gastos_${sucursalActual}`);
-                localStorage.removeItem(`depositos_${sucursalActual}`);
-                localStorage.removeItem(`cajaInicioBase_${sucursalActual}`);
-                localStorage.removeItem(`ventas_${sucursalActual}`);
-                alert("✅ Cierre enviado.");
+                alert("✅ Cierre enviado y caja base actualizada para el siguiente día.");
                 location.reload();
             } catch (e) {
                 alert("Error: " + e.message);
@@ -1911,7 +1927,6 @@
                 }, { merge: true });
 
                 alert(`✅ Cierre actualizado.\n• Eliminadas: ${eliminadasOk}\n• Total final: ${facturasDelDia.length}`);
-                limpiarEstadoEdicion();
                 location.reload();
             } catch (e) { alert("Error: " + e.message); btn.disabled = false; btn.innerText = "💾 GUARDAR CAMBIOS"; }
         }
