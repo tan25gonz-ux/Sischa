@@ -531,7 +531,7 @@
                     </div>
 
                     <div class="section-divider">
-                        ✍️ Firma Digital del Cliente3
+                        ✍️ Firma Digital del Cliente
                         <span id="firmaEstadoBadge" class="firma-aviso">⚠️ Requerida</span>
                     </div>
 
@@ -818,6 +818,9 @@
         let totalAcumuladoComprasDia = 0;
         let sucursalActual = "Desconocida";
         let inyeccionesAdmin = 0; 
+        
+        // ✅ NUEVA VARIABLE PARA LA DEUDA OPTIMIZADA
+        let deudaMovimientosBase = 0; 
 
         let temporizadorFirestore = null;
 
@@ -833,7 +836,7 @@
         let estadoDiaRef = null;
         let unsubscribeFacturas = null;
         let unsubscribeEstado = null;
-        let unsubscribeInventario = null; // ✅ NUEVO
+        let unsubscribeInventario = null; 
 
         function obtenerFechaHoy() {
             const d = new Date();
@@ -975,16 +978,24 @@
                 iniciarSincronizacionNube();
 
                 await cargarPreciosDesdeFirebase();
-                await calcularDeudaTotal();
                 await cargarUltimoCierre();
                 await obtenerSiguienteNumeroFacturaActual();
+                await inicializarDeudaRealTime(); // ✅ NUEVA FUNCIÓN
 
                 setTimeout(() => { initFirma(); detectarTrazo(); actualizarBadgeFirma(); }, 100);
 
-                // ESCUCHADOR EN TIEMPO REAL PARA EL DINERO DEL ADMIN
+                // ESCUCHADOR EN TIEMPO REAL PARA EL DINERO DEL ADMIN Y LA DEUDA BASE
                 onSnapshot(doc(db, "cajas_en_vivo", sucursalActual), (docSnap) => {
                     if (docSnap.exists()) {
                         const data = docSnap.data();
+                        
+                        // Actualizamos la base de la deuda si cambia
+                        if (data.deuda_movimientos !== undefined) {
+                            deudaMovimientosBase = data.deuda_movimientos;
+                            actualizarUIVisualDeuda();
+                        }
+
+                        // Actualizar dinero del admin
                         if (data.admin_envios && Array.isArray(data.admin_envios)) {
                             const nuevoTotal = data.admin_envios.reduce((sum, envio) => sum + (parseFloat(envio.monto) || 0), 0);
                             if (nuevoTotal !== inyeccionesAdmin) {
@@ -998,25 +1009,12 @@
                     }
                 });
 
-                // ✅ REFRESCO SUAVE AUTOMÁTICO CADA 15 MINUTOS
-                if (window.refrescoAutomatico) clearInterval(window.refrescoAutomatico);
-                window.refrescoAutomatico = setInterval(async () => {
-                    if (modoEdicionCierre) return; 
-                    try {
-                        await cargarPreciosDesdeFirebase();
-                        await calcularDeudaTotal();
-                        await cargarUltimoCierre();
-                        await obtenerSiguienteNumeroFacturaActual();
-                    } catch (e) {
-                        console.error("Error en auto-refresco:", e);
-                    }
-                }, 15 * 60 * 1000); 
+                // ❌ SE ELIMINÓ EL setInterval DE 15 MINUTOS ❌
 
             } else {
                 if (unsubscribeFacturas) unsubscribeFacturas();
                 if (unsubscribeEstado) unsubscribeEstado();
                 if (unsubscribeInventario) unsubscribeInventario();
-                if (window.refrescoAutomatico) clearInterval(window.refrescoAutomatico);
                 document.getElementById('login-section').style.display = 'flex';
                 document.getElementById('modulo-principal').style.display = 'none';
             }
@@ -1043,6 +1041,7 @@
                 actualizarTablaGastos();
                 actualizarTablaDepositos();
                 calcularCajaDinamica();
+                actualizarUIVisualDeuda(); // ✅ ACTUALIZA DEUDA CUANDO CAMBIAN DEPÓSITOS
             });
 
             // 2. Escuchar Facturas del día actual
@@ -1060,13 +1059,60 @@
                 actualizarTablaGeneralDia();
             });
 
-            // 3. ✅ NUEVO: Escuchar Inventario en tiempo real
+            // 3. Escuchar Inventario en tiempo real
             unsubscribeInventario = onSnapshot(doc(db, "inventario", sucursalActual), (docSnap) => {
                 if (docSnap.exists()) {
                     inventarioActual = docSnap.data().materiales || {};
                     renderizarInventario();
                 }
             });
+        }
+
+        // =====================================================
+        // 💰 OPTIMIZACIÓN DE LA DEUDA (TIEMPO REAL SIN GASTO MASIVO)
+        // =====================================================
+        async function inicializarDeudaRealTime() {
+            try {
+                const docRef = doc(db, "cajas_en_vivo", sucursalActual);
+                const docSnap = await getDoc(docRef);
+                
+                // Si el documento ya tiene calculada la deuda base, no gastamos lecturas.
+                if (docSnap.exists() && docSnap.data().deuda_movimientos !== undefined) {
+                    return; 
+                }
+
+                // Si es la primera vez, calculamos la deuda histórica UNA VEZ y la guardamos.
+                const q = query(collection(db, "movimientos_cuenta"), where("sucursal", "==", sucursalActual));
+                const querySnapshot = await getDocs(q);
+                let sumaMovimientos = 0;
+                
+                querySnapshot.forEach((doc) => {
+                    const data = doc.data();
+                    const monto = parseFloat(data.monto) || 0;
+                    if (data.tipo === "Salida_Venta") sumaMovimientos += monto;
+                    else if (data.tipo === "Deposito") sumaMovimientos -= monto;
+                });
+
+                await setDoc(docRef, { deuda_movimientos: sumaMovimientos }, { merge: true });
+            } catch (error) { console.error("Error inicializando deuda:", error); }
+        }
+
+        // Actualiza la pantalla sumando la deuda base + los depósitos del día
+        function actualizarUIVisualDeuda() {
+            const total = deudaMovimientosBase + obtenerTotalDepositos();
+            document.getElementById('deudaTotalTxt').innerText = total.toLocaleString('es-CR');
+        }
+
+        // Actualiza la nube con matemática simple (0 lecturas)
+        async function sumarDeudaMovimiento(monto, esSalida) {
+            const docRef = doc(db, "cajas_en_vivo", sucursalActual);
+            try {
+                if (esSalida) {
+                    await setDoc(docRef, { deuda_movimientos: increment(monto) }, { merge: true });
+                } else {
+                    await setDoc(docRef, { deuda_movimientos: increment(-monto) }, { merge: true });
+                }
+            } catch (e) { console.error("Error actualizando deuda:", e); }
         }
 
         // =====================================================
@@ -1107,7 +1153,6 @@
         async function actualizarInventarioFirestore(delta) {
             if (!delta || Object.keys(delta).length === 0) return;
             
-            // ✅ USAR INCREMENT PARA EVITAR SOBRESCRIBIR DATOS DESACTUALIZADOS
             const actualizacionesMateriales = {};
             Object.entries(delta).forEach(([mat, kg]) => {
                 actualizacionesMateriales[mat] = increment(kg);
@@ -1118,7 +1163,6 @@
                     materiales: actualizacionesMateriales,
                     ultima_actualizacion: serverTimestamp()
                 }, { merge: true });
-                // La UI se actualizará sola gracias al onSnapshot del inventario
             } catch (e) { console.error("Error actualizando inventario:", e); }
         }
 
@@ -1129,7 +1173,6 @@
             try {
                 const snap = await getDoc(doc(db, "contadores_facturas", sucursalActual));
                 const ultimo = snap.exists() ? (parseInt(snap.data().ultimo_numero) || 0) : 0;
-                // CORRECCIÓN: Quitamos el límite de 10000
                 const numSeguro = ultimo + 1; 
                 document.getElementById('numFacturaCliente').value = numSeguro;
             } catch (error) { console.error(error); }
@@ -1140,7 +1183,6 @@
                 const snap = await getDoc(doc(db, "contadores_facturas", sucursalActual));
                 const ultimo = snap.exists() ? (parseInt(snap.data().ultimo_numero) || 0) : 0;
                 
-                // CORRECCIÓN: Solo ajustamos si el número borrado es exactamente el último que se generó
                 if (parseInt(numeroBorrado) === ultimo) {
                     let numRestar = ultimo - 1;
                     if (numRestar < 0) numRestar = 0;
@@ -1221,6 +1263,7 @@
                 actualizarTablaGastos();
                 actualizarTablaDepositos();
                 calcularCajaDinamica();
+                actualizarUIVisualDeuda(); // ✅ ACTUALIZA DEUDA AL EDITAR
 
                 document.getElementById('bannerFechaCierre').innerText = fechaCierre;
                 document.getElementById('bannerEdicionCierre').style.display = 'flex';
@@ -1340,7 +1383,6 @@
         };
 
         window.logout = () => {
-            if (window.refrescoAutomatico) clearInterval(window.refrescoAutomatico);
             signOut(auth);
         };
 
@@ -1411,7 +1453,6 @@
                 const docSnap = await getDoc(docRefCont);
                 let ultimoNum = docSnap.exists() ? (parseInt(docSnap.data().ultimo_numero) || 0) : 0;
                 
-                // CORRECCIÓN: Se elimina la restricción < 10000
                 if (numFacturaInt > ultimoNum) {
                     await setDoc(docRefCont, { ultimo_numero: numFacturaInt }, { merge: true });
                 }
@@ -1460,13 +1501,13 @@
 
             document.getElementById('depositoDescInput').value = "";
             document.getElementById('depositoMontoInput').value = "";
-            calcularDeudaTotal();
+            // La UI de la deuda se actualiza automáticamente por el onSnapshot de estado_dia
         };
 
         window.eliminarDepositoLista = async (index) => {
             listaDepositosDia.splice(index, 1);
             await updateDoc(estadoDiaRef, { depositos: listaDepositosDia });
-            calcularDeudaTotal();
+            // La UI de la deuda se actualiza automáticamente por el onSnapshot de estado_dia
         };
 
         function obtenerTotalDepositos() { return listaDepositosDia.reduce((sum, d) => sum + d.monto, 0); }
@@ -1563,22 +1604,6 @@
                     ultima_actualizacion: serverTimestamp()
                 }, { merge: true });
             } catch (e) { console.error(e); }
-        }
-
-        async function calcularDeudaTotal() {
-            try {
-                const q = query(collection(db, "movimientos_cuenta"), where("sucursal", "==", sucursalActual));
-                const querySnapshot = await getDocs(q);
-                let deudaCalculada = 0;
-                querySnapshot.forEach((doc) => {
-                    const data = doc.data();
-                    const monto = parseFloat(data.monto) || 0;
-                    if (data.tipo === "Salida_Venta") deudaCalculada += monto;
-                    else if (data.tipo === "Deposito") deudaCalculada -= monto;
-                });
-                deudaCalculada += obtenerTotalDepositos();
-                document.getElementById('deudaTotalTxt').innerText = deudaCalculada.toLocaleString('es-CR');
-            } catch (error) { console.error(error); }
         }
 
         function actualizarTablaGeneralDia() {
@@ -1960,10 +1985,14 @@
                     monto: monto, fecha_operacion: fechaMov, motivo: motivo || "Sin especificación",
                     timestamp: serverTimestamp()
                 });
+                
+                // ✅ ACTUALIZAMOS LA DEUDA CON MATEMÁTICA SIMPLE (0 LECTURAS)
+                if (tipo === "Salida_Venta") await sumarDeudaMovimiento(monto, true);
+                else if (tipo === "Deposito") await sumarDeudaMovimiento(monto, false);
+
                 alert(`✅ ${tipo} registrado.`);
                 document.getElementById('montoMovimiento').value = "";
                 document.getElementById('motivoMovimiento').value = "";
-                await calcularDeudaTotal();
             } catch (error) { alert("Error: " + error.message); }
             finally { btn.disabled = false; btn.innerText = "Registrar"; }
         };
