@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Último Cierre - Sucursal</title>
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+        import { getFirestore, collection, query, where, orderBy, limit, getDocs } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyCi409CkmXBbun7-POejbVaIiThK2nZ1JY",
+            authDomain: "prestamos-18dd8.firebaseapp.com",
+            projectId: "prestamos-18dd8",
+            storageBucket: "prestamos-18dd8.firebasestorage.app",
+            messagingSenderId: "921713515466",
+            appId: "1:921713515466:web:0e2bcb5d67067068570d33"
+        };
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const auth = getAuth(app);
+
+        let sucursalActual = "Desconocida";
+        let ultimoCierre = null;
+        let facturasCierre = [];
+
+        onAuthStateChanged(auth, async (user) => {
+            if (user) {
+                const emailUsuario = user.email ? user.email.toLowerCase().trim() : "";
+                if (emailUsuario.includes("perez")) {
+                    sucursalActual = "Perez";
+                } else if (emailUsuario.includes("paraiso")) {
+                    sucursalActual = "Paraiso";
+                } else if (emailUsuario.includes("cartago")) {
+                    sucursalActual = "Cartago";
+                } else {
+                    sucursalActual = "Desconocida";
+                }
+
+                document.getElementById('sucursal-label').innerText = sucursalActual;
+                await cargarUltimoCierre();
+            } else {
+                window.location.href = 'index.html';
+            }
+        });
+
+        async function cargarUltimoCierre() {
+            try {
+                // 1. Obtener el último cierre
+                const qCierre = query(
+                    collection(db, "revisiones_faltantes"),
+                    where("sucursal", "==", sucursalActual),
+                    orderBy("timestamp", "desc"),
+                    limit(1)
+                );
+                const snapCierre = await getDocs(qCierre);
+                if (snapCierre.empty) {
+                    mostrarSinCierre();
+                    return;
+                }
+                const docCierre = snapCierre.docs[0];
+                ultimoCierre = docCierre.data();
+                ultimoCierre.id = docCierre.id;
+
+                // 2. Obtener las facturas de ese cierre (usando cierre_id)
+                const qFacturas = query(
+                    collection(db, "facturas_compras"),
+                    where("cierre_id", "==", ultimoCierre.id),
+                    where("sucursal", "==", sucursalActual)
+                );
+                const snapFacturas = await getDocs(qFacturas);
+                facturasCierre = [];
+                snapFacturas.forEach(doc => {
+                    facturasCierre.push(doc.data());
+                });
+
+                // 3. Renderizar todo
+                renderizarCierre();
+            } catch (error) {
+                console.error("Error cargando datos:", error);
+                document.getElementById('detalle-cierre').innerHTML = `
+                    <div style="background: #fff5f5; padding: 16px; border-radius: 12px; border-left: 4px solid #f56565;">
+                        <p style="color: #c53030; font-weight: bold;">Error al cargar los datos: ${error.message}</p>
+                    </div>
+                `;
+            }
+        }
+
+        function mostrarSinCierre() {
+            document.getElementById('detalle-cierre').innerHTML = `
+                <div style="background: #fff5f5; padding: 16px; border-radius: 12px; border-left: 4px solid #f56565;">
+                    <p style="color: #c53030; font-weight: bold;">No se encontraron cierres previos para esta sucursal.</p>
+                </div>
+            `;
+        }
+
+        function renderizarCierre() {
+            const datos = ultimoCierre;
+            const fecha = datos.fecha || 'N/A';
+            const cajaInicio = (datos.caja_inicio || 0).toLocaleString('es-CR');
+            const ventas = (datos.total_ventas || 0).toLocaleString('es-CR');
+            const depositos = (datos.total_depositos || 0).toLocaleString('es-CR');
+            const pagoMateriales = (datos.pago_materiales || 0).toLocaleString('es-CR');
+            const gastos = (datos.gastos_facturas || 0).toLocaleString('es-CR');
+            const cierreMano = (datos.cierre_mano || 0).toLocaleString('es-CR');
+            const estado = datos.estado || 'Pendiente';
+            let timestampStr = 'No disponible';
+            if (datos.timestamp) {
+                if (datos.timestamp.toDate) {
+                    timestampStr = datos.timestamp.toDate().toLocaleString('es-CR');
+                } else {
+                    timestampStr = datos.timestamp;
+                }
+            }
+
+            // Procesar depósitos y gastos para mostrarlos bonito
+            let depositosHtml = '';
+            if (datos.detalles_depositos && datos.detalles_depositos.length > 0) {
+                depositosHtml = datos.detalles_depositos.map(d => 
+                    `<span style="display:inline-block; background:#e6fffa; padding:4px 10px; border-radius:20px; margin:3px; font-size:13px;">${d.descripcion || 'Depósito'}: ₡${d.monto.toLocaleString('es-CR')}</span>`
+                ).join(' ');
+            } else {
+                depositosHtml = '<span style="color:#718096;">Sin depósitos registrados</span>';
+            }
+
+            let gastosHtml = '';
+            if (datos.detalles_gastos && datos.detalles_gastos.length > 0) {
+                gastosHtml = datos.detalles_gastos.map(g => 
+                    `<span style="display:inline-block; background:#fff5f5; padding:4px 10px; border-radius:20px; margin:3px; font-size:13px;">${g.descripcion || 'Gasto'}: ₡${g.monto.toLocaleString('es-CR')}</span>`
+                ).join(' ');
+            } else {
+                gastosHtml = '<span style="color:#718096;">Sin gastos registrados</span>';
+            }
+
+            // Generar tabla de materiales comprados
+            let materialesHtml = '';
+            if (facturasCierre.length === 0) {
+                materialesHtml = `<tr><td colspan="3" style="text-align:center; color:#999;">No se registraron compras de materiales en este cierre.</td></tr>`;
+            } else {
+                // Acumular materiales por tipo
+                const acumulado = {};
+                facturasCierre.forEach(fact => {
+                    if (fact.detalles_materiales) {
+                        fact.detalles_materiales.forEach(item => {
+                            const mat = item.material;
+                            if (!acumulado[mat]) {
+                                acumulado[mat] = { kilos: 0, costo: 0 };
+                            }
+                            acumulado[mat].kilos += item.kilos || 0;
+                            acumulado[mat].costo += item.total_pago || 0;
+                        });
+                    }
+                });
+                // Ordenar por costo descendente
+                const sorted = Object.entries(acumulado).sort((a, b) => b[1].costo - a[1].costo);
+                sorted.forEach(([material, data]) => {
+                    materialesHtml += `
+                        <tr>
+                            <td><strong>${material}</strong></td>
+                            <td>${data.kilos.toFixed(1)} kg</td>
+                            <td>₡${data.costo.toLocaleString('es-CR')}</td>
+                        </tr>
+                    `;
+                });
+            }
+
+            // Construir el HTML final
+            document.getElementById('detalle-cierre').innerHTML = `
+                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:16px; margin-bottom:20px;">
+                    <div style="background:#f8fafc; padding:14px; border-radius:12px; border-left:4px solid #3182ce;">
+                        <p style="margin:4px 0;"><strong>📅 Fecha:</strong> ${fecha}</p>
+                        <p style="margin:4px 0;"><strong>💰 Caja Inicio:</strong> ₡${cajaInicio}</p>
+                        <p style="margin:4px 0;"><strong>📈 Ventas:</strong> ₡${ventas}</p>
+                        <p style="margin:4px 0;"><strong>💵 Depósitos:</strong> ₡${depositos}</p>
+                    </div>
+                    <div style="background:#f8fafc; padding:14px; border-radius:12px; border-left:4px solid #2f855a;">
+                        <p style="margin:4px 0;"><strong>📦 Pago Materiales:</strong> ₡${pagoMateriales}</p>
+                        <p style="margin:4px 0;"><strong>💸 Gastos:</strong> ₡${gastos}</p>
+                        <p style="margin:4px 0;"><strong>✋ Cierre en mano:</strong> ₡${cierreMano}</p>
+                        <p style="margin:4px 0;"><strong>📌 Estado:</strong> <span style="background:#fefcbf; padding:2px 10px; border-radius:12px;">${estado}</span></p>
+                    </div>
+                </div>
+                <div style="margin-bottom:12px;">
+                    <p><strong>🕒 Registrado:</strong> ${timestampStr}</p>
+                </div>
+                <div style="background:#edf2f7; padding:12px; border-radius:10px; margin-bottom:16px;">
+                    <p style="margin:0 0 6px 0;"><strong>💳 Depósitos:</strong></p>
+                    <div>${depositosHtml}</div>
+                </div>
+                <div style="background:#edf2f7; padding:12px; border-radius:10px; margin-bottom:20px;">
+                    <p style="margin:0 0 6px 0;"><strong>💸 Gastos:</strong></p>
+                    <div>${gastosHtml}</div>
+                </div>
+
+                <h3 style="color:#2b6cb0; margin-top:24px; margin-bottom:12px;">📋 Materiales Comprados en este Cierre</h3>
+                <div style="overflow-x:auto; border-radius:12px; border:1px solid #e2e8f0;">
+                    <table style="width:100%; border-collapse:collapse; font-size:14px;">
+                        <thead style="background:#f1f5f9;">
+                            <tr>
+                                <th style="padding:10px 14px; text-align:left;">Material</th>
+                                <th style="padding:10px 14px; text-align:right;">Kilos</th>
+                                <th style="padding:10px 14px; text-align:right;">Costo Total</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${materialesHtml}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+        }
+
+        window.volver = function() {
+            window.location.href = 'index.html';
+        };
+
+        window.logout = function() {
+            signOut(auth).then(() => {
+                window.location.href = 'index.html';
+            });
+        };
+    </script>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Segoe UI', -apple-system, sans-serif;
+            background: #f0f2f5;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 900px;
+            width: 100%;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+            padding: 30px;
+            margin-top: 30px;
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-bottom: 8px;
+        }
+        h1 {
+            font-size: 26px;
+            color: #1a73e8;
+            margin: 0;
+        }
+        .badge {
+            background: #ebf8ff;
+            color: #2b6cb0;
+            padding: 6px 16px;
+            border-radius: 30px;
+            font-weight: 600;
+            font-size: 15px;
+        }
+        .subtitle {
+            color: #4a5568;
+            margin-bottom: 24px;
+            font-size: 16px;
+        }
+        .btn-group {
+            display: flex;
+            gap: 12px;
+            margin-top: 28px;
+            flex-wrap: wrap;
+        }
+        .btn {
+            padding: 10px 24px;
+            border: none;
+            border-radius: 10px;
+            font-weight: 600;
+            cursor: pointer;
+            font-size: 15px;
+            transition: all 0.2s;
+        }
+        .btn-primary {
+            background: #1a73e8;
+            color: white;
+        }
+        .btn-primary:hover {
+            background: #1557b0;
+            transform: translateY(-1px);
+        }
+        .btn-danger {
+            background: #e53e3e;
+            color: white;
+        }
+        .btn-danger:hover {
+            background: #c53030;
+        }
+        .footer {
+            margin-top: 30px;
+            border-top: 1px solid #e2e8f0;
+            padding-top: 16px;
+            text-align: center;
+            color: #718096;
+            font-size: 13px;
+        }
+        @media (max-width: 700px) {
+            .container { padding: 20px; }
+            .header { flex-direction: column; align-items: flex-start; }
+            .btn-group { flex-direction: column; }
+            .btn { width: 100%; }
+            #detalle-cierre > div:first-child { grid-template-columns: 1fr !important; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📋 Último Cierre</h1>
+            <span class="badge">🏢 <span id="sucursal-label">Cargando...</span></span>
+        </div>
+        <div class="subtitle">Detalle completo del cierre más reciente</div>
+
+        <div id="detalle-cierre">
+            <p style="color: #718096;">Cargando información...</p>
+        </div>
+
+        <div class="btn-group">
+            <button class="btn btn-primary" onclick="volver()">🔙 Volver al Sistema</button>
+            <button class="btn btn-danger" onclick="logout()">🚪 Cerrar Sesión</button>
+        </div>
+
+        <div class="footer">
+            Sistema de Facturación y Cierre &bull; Datos en tiempo real desde Firebase
+        </div>
+    </div>
+</body>
+</html>
