@@ -650,24 +650,7 @@
                         </div>
                     </div>
 
-                    <div class="section-divider">➕ Agregar Plata / Entrada de Dinero</div>
-
-                    <div class="field-row input-inline">
-                        <input type="text" id="depositoDescInput" placeholder="Detalle (ej: Envío de plata)">
-                        <input type="text" id="depositoMontoInput" placeholder="Monto ₡" oninput="formatearInputMoneda(this)">
-                        <button class="btn-info" onclick="agregarDepositoLista()">➕ Sumar</button>
-                    </div>
-
-                    <div class="table-wrapper" style="margin-top:10px;">
-                        <div class="table-responsive">
-                            <table>
-                                <thead>
-                                    <tr><th>Detalle</th><th style="text-align:right;">Monto</th><th style="width:60px;"></th></tr>
-                                </thead>
-                                <tbody id="body-depositos-lista"></tbody>
-                            </table>
-                        </div>
-                    </div>
+                    <!-- ❌ SECCIÓN ELIMINADA: Agregar Plata / Entrada de Dinero ❌ -->
 
                     <div class="section-divider">📌 Registro de Gastos Varios</div>
 
@@ -840,7 +823,7 @@
         let inyeccionesAdmin = 0; 
         
         let deudaMovimientosBase = 0; 
-        let timestampUltimoCierre = 0; // ✅ GUARDAREMOS LA HORA DEL CIERRE
+        let timestampUltimoCierre = 0; 
 
         let temporizadorFirestore = null;
 
@@ -1558,6 +1541,7 @@
 
         function actualizarTablaVentas() {
             const tbody = document.getElementById('body-ventas-lista');
+            if (!tbody) return;
             tbody.innerHTML = "";
             let total = 0;
             if (listaVentasDia.length === 0) {
@@ -1594,6 +1578,7 @@
 
         function actualizarTablaDepositos() {
             const tbody = document.getElementById('body-depositos-lista');
+            if (!tbody) return; // ✅ EVITA ERRORES SI SE ELIMINA LA SECCIÓN
             tbody.innerHTML = "";
             let total = 0;
             if (listaDepositosDia.length === 0) tbody.innerHTML = `<tr><td colspan="3" class="empty-state">Sin entradas de dinero</td></tr>`;
