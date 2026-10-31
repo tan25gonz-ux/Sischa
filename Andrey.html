@@ -120,14 +120,14 @@
         .monto-pos { color: #059669; font-weight: 800; }
         .monto-neg { color: #dc2626; font-weight: 800; }
 
-        /* ESTILOS DEL INVENTARIO */
-        .inventario-container {
+        /* ESTILOS PARA EL DETALLE DEL DÍA */
+        .acordeon-container {
             margin-top: 15px;
             border: 1px solid var(--gray-200);
             border-radius: 10px;
             overflow: hidden;
         }
-        .btn-toggle-inventario {
+        .btn-acordeon {
             width: 100%;
             background: #e0e7ff;
             color: #3730a3;
@@ -141,10 +141,69 @@
             align-items: center;
             transition: background 0.2s;
         }
-        .btn-toggle-inventario:hover { background: #c7d2fe; }
+        .btn-acordeon:hover { background: #c7d2fe; }
+        .acordeon-listado {
+            display: none;
+            max-height: 250px;
+            overflow-y: auto;
+            background: white;
+            padding: 12px;
+        }
+        .acordeon-listado.active { display: block; }
+        
+        .lista-header {
+            font-size: 12px;
+            font-weight: 800;
+            text-transform: uppercase;
+            margin-bottom: 8px;
+            padding-bottom: 4px;
+            border-bottom: 1px solid var(--gray-200);
+        }
+        .lista-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 12px;
+            padding: 6px 0;
+            border-bottom: 1px dotted var(--gray-200);
+        }
+        .lista-item:last-child { border-bottom: none; }
+        .badge-origen {
+            font-size: 9px;
+            padding: 2px 6px;
+            border-radius: 4px;
+            margin-left: 6px;
+            font-weight: 700;
+        }
+        .origen-curso { background: #dcfce7; color: #166534; }
+        .origen-cerrado { background: #f1f5f9; color: #475569; }
+
+        /* ESTILOS DEL INVENTARIO DEL DÍA */
+        .inventario-container {
+            margin-top: 15px;
+            border: 1px solid var(--gray-200);
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        .btn-toggle-inventario {
+            width: 100%;
+            background: #f8fafc;
+            color: #1e293b;
+            padding: 12px;
+            border: none;
+            font-weight: 800;
+            font-size: 13px;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: background 0.2s;
+            border-top: 1px solid var(--gray-200);
+        }
+        .btn-toggle-inventario:hover { background: #e2e8f0; }
         .inventario-listado {
             display: none;
-            max-height: 180px;
+            max-height: 200px;
             overflow-y: auto;
             background: white;
             padding: 10px;
@@ -169,8 +228,6 @@
             color: var(--primary);
             border-bottom: 1px solid var(--gray-200);
         }
-
-        /* FIN ESTILOS INVENTARIO */
 
         .actions-box {
             margin-top: 20px;
@@ -246,9 +303,8 @@
         .btn-cancel { background: var(--gray-100); color: var(--gray-600); border: none; padding: 12px; border-radius: 8px; font-weight: 700; cursor: pointer; flex: 1; }
         .btn-confirm { background: var(--primary); color: white; border: none; padding: 12px; border-radius: 8px; font-weight: 700; cursor: pointer; flex: 1; }
     
-        /* Scrollbar para inventario */
-        .inventario-listado::-webkit-scrollbar { width: 6px; }
-        .inventario-listado::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
     </style>
 </head>
 <body>
@@ -289,7 +345,7 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getFirestore, collection, onSnapshot, doc, updateDoc, increment, arrayUnion, getDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        import { getFirestore, collection, onSnapshot, doc, updateDoc, increment, arrayUnion, getDoc, query, where } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyCi409CkmXBbun7-POejbVaIiThK2nZ1JY",
@@ -306,35 +362,51 @@
         let sucursalSeleccionada = "";
         let montoAInyectar = 0;
 
-        // ✅ OBJETOS GLOBALES PARA GUARDAR DATOS Y EVITAR MULTIPLES RENDERIZADOS
         let cajasDataGlobal = [];
-        let inventariosGlobal = {};
+        let cierresDelDiaGlobal = []; 
+        let facturasHoyGlobal = []; 
 
-        // =====================================================
-        // 1. ESCUCHADOR DE CAJAS (Tiempo Real)
-        // =====================================================
+        function obtenerFechaHoy() {
+            const d = new Date();
+            const yyyy = d.getFullYear();
+            const mm = String(d.getMonth() + 1).padStart(2, '0');
+            const dd = String(d.getDate()).padStart(2, '0');
+            return `${yyyy}-${mm}-${dd}`;
+        }
+
+        // 1. Escuchar Turno Actual (Súper optimizado)
         onSnapshot(collection(db, "cajas_en_vivo"), (snapshot) => {
             cajasDataGlobal = [];
             snapshot.forEach((documento) => {
                 cajasDataGlobal.push(documento.data());
             });
-            renderizarPanel(); // Redibujamos todo
+            renderizarPanel();
         });
 
-        // =====================================================
-        // 2. ESCUCHADOR DE INVENTARIOS (Optimizado: 1 sola escucha para todos)
-        // =====================================================
-        onSnapshot(collection(db, "inventario"), (snapshot) => {
-            inventariosGlobal = {};
+        // 2. Escuchar Cierres del Día (Turnos pasados hoy)
+        const hoy = obtenerFechaHoy();
+        const qCierres = query(collection(db, "revisiones_faltantes"), where("fecha", "==", hoy));
+        
+        onSnapshot(qCierres, (snapshot) => {
+            cierresDelDiaGlobal = [];
             snapshot.forEach((documento) => {
-                // Guardamos los materiales por el ID del documento (que es el nombre de la sucursal)
-                inventariosGlobal[documento.id] = documento.data().materiales || {};
+                cierresDelDiaGlobal.push(documento.data());
             });
-            renderizarPanel(); // Redibujamos todo
+            renderizarPanel(); 
+        });
+
+        // 3. Escuchar Facturas Emitidas Hoy (SOLO las de hoy, para no gastar lecturas)
+        const qFacturas = query(collection(db, "facturas_compras"), where("fecha", "==", hoy));
+        onSnapshot(qFacturas, (snapshot) => {
+            facturasHoyGlobal = [];
+            snapshot.forEach((documento) => {
+                facturasHoyGlobal.push(documento.data());
+            });
+            renderizarPanel();
         });
 
         // =====================================================
-        // 3. RENDERIZADO DEL PANEL (Se llama cuando cambia algo)
+        // RENDERIZADO DEL PANEL
         // =====================================================
         function renderizarPanel() {
             const contenedor = document.getElementById('contenedor-cajas');
@@ -344,38 +416,103 @@
                 return;
             }
 
-            contenedor.innerHTML = ""; // Limpiamos antes de dibujar
+            contenedor.innerHTML = ""; 
 
             cajasDataGlobal.forEach((data) => {
                 const hora = data.ultima_actualizacion ? new Date(data.ultima_actualizacion.toDate()).toLocaleTimeString() : 'En espera';
                 const envios = data.admin_envios || [];
                 
-                // Obtener inventario de esta sucursal
-                const inventarioSucursal = inventariosGlobal[data.sucursal] || {};
+                const cierresSucursalHoy = cierresDelDiaGlobal.filter(c => c.sucursal === data.sucursal);
                 
-                // Generar HTML del inventario
+                // ✅ CALCULAR INVENTARIO SOLO DE HOY
+                const facturasSucursalHoy = facturasHoyGlobal.filter(f => f.sucursal === data.sucursal);
+                let inventarioHoy = {};
+                facturasSucursalHoy.forEach(fact => {
+                    if (fact.detalles_materiales) {
+                        fact.detalles_materiales.forEach(m => {
+                            const mat = m.material || 'SIN MATERIAL';
+                            const kg = parseFloat(m.kilos) || 0;
+                            if (!inventarioHoy[mat]) inventarioHoy[mat] = 0;
+                            inventarioHoy[mat] += kg;
+                        });
+                    }
+                });
+
+                // RECOPILAR DETALLES DE VENTAS Y GASTOS (Cerrados + En Curso)
+                let listaVentasDetalle = [];
+                let listaGastosDetalle = [];
+                let totalVentasDia = 0;
+                let totalGastosDia = 0;
+
+                // A) Del turno en curso
+                if (data.ventas_lista) {
+                    data.ventas_lista.forEach(v => {
+                        listaVentasDetalle.push({ desc: v.descripcion, monto: v.monto, origen: 'En Curso' });
+                        totalVentasDia += v.monto;
+                    });
+                }
+                if (data.gastos) {
+                    data.gastos.forEach(g => {
+                        listaGastosDetalle.push({ desc: g.descripcion, monto: g.monto, origen: 'En Curso' });
+                        totalGastosDia += g.monto;
+                    });
+                }
+
+                // B) De los turnos cerrados hoy
+                cierresSucursalHoy.forEach(c => {
+                    if (c.detalles_ventas) {
+                        c.detalles_ventas.forEach(v => {
+                            listaVentasDetalle.push({ desc: v.descripcion, monto: v.monto, origen: 'Cerrado' });
+                            totalVentasDia += v.monto;
+                        });
+                    }
+                    if (c.detalles_gastos) {
+                        c.detalles_gastos.forEach(g => {
+                            listaGastosDetalle.push({ desc: g.descripcion, monto: g.monto, origen: 'Cerrado' });
+                            totalGastosDia += g.monto;
+                        });
+                    }
+                });
+
+                // Generar HTML de la lista de ventas
+                let htmlVentas = listaVentasDetalle.length === 0 ? '<div style="color:#94a3b8; font-size:12px; text-align:center;">No hay ventas hoy</div>' : 
+                    listaVentasDetalle.map(v => `
+                        <div class="lista-item">
+                            <span>${v.desc} <span class="badge-origen ${v.origen === 'En Curso' ? 'origen-curso' : 'origen-cerrado'}">${v.origen}</span></span>
+                            <span style="color:#059669; font-weight:700;">+₡${v.monto.toLocaleString('es-CR')}</span>
+                        </div>
+                    `).join('');
+
+                // Generar HTML de la lista de gastos
+                let htmlGastos = listaGastosDetalle.length === 0 ? '<div style="color:#94a3b8; font-size:12px; text-align:center;">No hay gastos hoy</div>' : 
+                    listaGastosDetalle.map(g => `
+                        <div class="lista-item">
+                            <span>${g.desc} <span class="badge-origen ${g.origen === 'En Curso' ? 'origen-curso' : 'origen-cerrado'}">${g.origen}</span></span>
+                            <span style="color:#dc2626; font-weight:700;">-₡${g.monto.toLocaleString('es-CR')}</span>
+                        </div>
+                    `).join('');
+
+                // Generar HTML del inventario (SOLO HOY)
                 let invHtml = '';
                 let totalKg = 0;
-                const entradasInv = Object.entries(inventarioSucursal).filter(([m, kg]) => Math.abs(parseFloat(kg) || 0) > 0.0001);
+                const entradasInv = Object.entries(inventarioHoy).filter(([m, kg]) => Math.abs(parseFloat(kg) || 0) > 0.0001);
 
                 if (entradasInv.length === 0) {
-                    invHtml = `<div style="padding:10px; text-align:center; font-size:12px; color:var(--gray-400);">Inventario vacío</div>`;
+                    invHtml = `<div style="padding:10px; text-align:center; font-size:12px; color:var(--gray-400);">No se han comprado materiales hoy</div>`;
                 } else {
-                    entradasInv.sort((a, b) => a[0].localeCompare(b[0])); // Orden alfabético
+                    entradasInv.sort((a, b) => a[0].localeCompare(b[0])); 
                     entradasInv.forEach(([mat, kg]) => {
                         const kgNum = parseFloat(kg) || 0;
                         totalKg += kgNum;
-                        const color = kgNum < 0 ? 'var(--danger)' : 'var(--primary)';
                         invHtml += `
                             <div class="inv-item">
                                 <span>${mat}</span>
-                                <span style="color:${color}; font-weight:800;">${kgNum.toFixed(2)} kg</span>
+                                <span style="color:var(--primary); font-weight:800;">${kgNum.toFixed(2)} kg</span>
                             </div>
                         `;
                     });
                 }
 
-                // Generar lista de envíos
                 let enviosHtml = '';
                 if (envios.length > 0) {
                     envios.forEach((envio, index) => {
@@ -388,7 +525,6 @@
                     });
                 }
 
-                // Estructura de la tarjeta
                 contenedor.innerHTML += `
                     <div class="card-caja">
                         <div style="display:flex; justify-content:space-between; align-items:center;">
@@ -396,7 +532,7 @@
                             <span class="badge-live"><span class="dot"></span> ${hora}</span>
                         </div>
 
-                        <label style="font-size:12px; color:var(--gray-600); font-weight:800; display:block; margin-top:16px; text-transform:uppercase; letter-spacing:0.5px;">Caja Disponible Actual</label>
+                        <label style="font-size:12px; color:var(--gray-600); font-weight:800; display:block; margin-top:16px; text-transform:uppercase; letter-spacing:0.5px;">Caja Disponible (Turno Actual)</label>
                         <div class="monto-vivo">₡${(data.caja_disponible || 0).toLocaleString('es-CR')}</div>
                         
                         <div>
@@ -405,35 +541,51 @@
                                 <span>₡${(data.caja_inicio || 0).toLocaleString('es-CR')}</span>
                             </div>
                             <div class="detalle-item">
-                                <span>➕ Plata Agregada / Depósitos:</span>
+                                <span>➕ Depósitos:</span>
                                 <span class="monto-pos">+₡${(data.depositos || 0).toLocaleString('es-CR')}</span>
                             </div>
                             <div class="detalle-item">
-                                <span>➕ Ventas Registradas:</span>
+                                <span>➕ Ventas:</span>
                                 <span class="monto-pos">+₡${(data.ventas || 0).toLocaleString('es-CR')}</span>
                             </div>
                             <div class="detalle-item">
-                                <span>➖ Pagado en Facturas:</span>
+                                <span>➖ Facturas:</span>
                                 <span class="monto-neg">-₡${(data.compras_facturas || 0).toLocaleString('es-CR')}</span>
                             </div>
                             <div class="detalle-item">
-                                <span>➖ Gastos Varios:</span>
+                                <span>➖ Gastos:</span>
                                 <span class="monto-neg">-₡${(data.gastos || 0).toLocaleString('es-CR')}</span>
                             </div>
                         </div>
 
-                        <!-- SECCIÓN DE INVENTARIO -->
-                        <div class="inventario-container">
+                        <!-- ACORDEÓN: DETALLE DE VENTAS Y GASTOS DEL DÍA -->
+                        <div class="acordeon-container">
+                            <button class="btn-acordeon" onclick="toggleDetalles('${data.sucursal}')">
+                                <span>📊 Detalle del Día (Ventas y Gastos)</span>
+                                <span id="flecha-det-${data.sucursal}">▼</span>
+                            </button>
+                            <div id="det-${data.sucursal}" class="acordeon-listado">
+                                
+                                <div class="lista-header" style="color:#059669;">Ventas (Total Hoy: ₡${totalVentasDia.toLocaleString('es-CR')})</div>
+                                ${htmlVentas}
+
+                                <div class="lista-header" style="color:#dc2626; margin-top:15px;">Gastos (Total Hoy: ₡${totalGastosDia.toLocaleString('es-CR')})</div>
+                                ${htmlGastos}
+
+                            </div>
+                        </div>
+
+                        <!-- INVENTARIO (SOLO HOY) -->
+                        <div class="inventario-container" style="margin-top:0; border-top:none;">
                             <button class="btn-toggle-inventario" onclick="toggleInventario('${data.sucursal}')">
-                                <span>📦 Ver Inventario Actual</span>
+                                <span>📦 Materiales Comprados Hoy</span>
                                 <span id="flecha-${data.sucursal}">▼</span>
                             </button>
                             <div id="inv-${data.sucursal}" class="inventario-listado">
-                                <div class="inv-total">Total en Stock: ${totalKg.toFixed(2)} kg</div>
+                                <div class="inv-total">Total Comprado Hoy: ${totalKg.toFixed(2)} kg</div>
                                 ${invHtml}
                             </div>
                         </div>
-                        <!-- FIN SECCIÓN DE INVENTARIO -->
 
                         <div class="actions-box">
                             <button class="btn-inyectar" onclick="abrirModal('${data.sucursal}')">
@@ -447,8 +599,20 @@
         }
 
         // =====================================================
-        // 4. FUNCIONES DE UI (Acordeón de Inventario)
+        // FUNCIONES DE UI (Acordeones)
         // =====================================================
+        window.toggleDetalles = function(sucursal) {
+            const div = document.getElementById(`det-${sucursal}`);
+            const flecha = document.getElementById(`flecha-det-${sucursal}`);
+            if (div.classList.contains('active')) {
+                div.classList.remove('active');
+                flecha.innerText = '▼';
+            } else {
+                div.classList.add('active');
+                flecha.innerText = '▲';
+            }
+        };
+
         window.toggleInventario = function(sucursal) {
             const div = document.getElementById(`inv-${sucursal}`);
             const flecha = document.getElementById(`flecha-${sucursal}`);
@@ -462,7 +626,7 @@
         };
 
         // =====================================================
-        // 5. LÓGICA DEL MODAL (Inyección de dinero)
+        // LÓGICA DEL MODAL (Inyección de dinero)
         // =====================================================
         window.abrirModal = function(sucursal) {
             sucursalSeleccionada = sucursal;
@@ -520,7 +684,7 @@
         };
 
         // =====================================================
-        // 6. ELIMINAR UN ENVÍO EQUIVOCADO
+        // ELIMINAR UN ENVÍO EQUIVOCADO
         // =====================================================
         window.eliminarEnvioAdmin = async function(sucursal, index, monto) {
             if (!confirm(`¿Estás seguro de eliminar este envío de ₡${monto.toLocaleString('es-CR')}?\n\nSe restará de la caja de la sucursal.`)) return;
