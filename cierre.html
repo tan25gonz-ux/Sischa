@@ -775,14 +775,10 @@
         const db = getFirestore(app);
         const auth = getAuth(app);
 
-        const listaMaterialesBase = [
-            "CHATARRA", "COBRE", "ALUMINIO", "LATAS ALUMINIO", "BRONCE",
-            "ACERO INOXIDABLE", "BATERIA CARRO", "CARTON",
-            "CATALIZADOR", "GALONES", "PET", "TETRABRIK",
-            "TARJETA", "LAVADORAS", "MOTORES", "PAPEL REVUELTO",
-            "PAPEL BLANCO", "PAPEL COLOR", "PERIODICO", "RADIADOR Cobre Bronce",
-            "RADIADOR Cobre Aluminio", "RADIADOR ALUMINIO", "CAJA PLASTICA",
-            "BOLSA TRANSPAR.", "BOLSA COLOR", "VIDRIO", "CABLE ELECTRICO", "OTROS"
+        const listaMaterialesBase = ["TARJETA", "LAVADORAS", "MOTORES", "PAPEL REVUELTO",
+"PAPEL BLANCO", "PAPEL COLOR", "PERIODICO", "RADIADOR Cobre Bronce",
+"RADIADOR Cobre Aluminio", "RADIADOR ALUMINIO", "CAJA PLASTICA",
+"BOLSA TRANSPAR.", "BOLSA COLOR", "VIDRIO", "CABLE ELECTRICO", "ESTAÑON PLASTICO", "ESTAÑON METALICO", "OTROS"
         ];
 
         const datosSucursales = {
