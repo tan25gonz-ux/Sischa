@@ -696,8 +696,7 @@
                 <!-- ACCIONES -->
                 <div class="panel-card">
                     <div class="panel-title">⚡ Acciones Rápidas</div>
-                    <button class="btn-info btn-full" onclick="mostrarUltimoCierre()" style="margin-bottom:8px;">📋 Ver Último Cierre</button>
-                    <button class="btn-warning btn-full" onclick="abrirModalEditarCierre()">✏️ Modificar Último Cierre</button>
+                    <button class="btn-info btn-full" onclick="mostrarUltimoCierre()">📋 Ver Último Cierre</button>
                 </div>
 
                 <!-- PRECIOS -->
@@ -776,12 +775,10 @@
         const auth = getAuth(app);
 
         const listaMaterialesBase = [    "CHATARRA", "COBRE", "ALUMINIO", "LATAS ALUMINIO", "BRONCE",
-    "ACERO INOXIDABLE", "BATERIA CARRO", "CARTON",
+    "ACERO INOXIDABLE", "BATERIA CARRO",
     "CATALIZADOR", "GALONES", "ESTAÑON PLASTICO", "ESTAÑON METALICO",
-    "TARJETA", "LAVADORAS", "MOTORES", "PAPEL REVUELTO",
-    "PAPEL BLANCO", "PAPEL COLOR", "PERIODICO", "RADIADOR Cobre Bronce",
-    "RADIADOR Cobre Aluminio", "RADIADOR ALUMINIO", "CAJA PLASTICA",
-    "BOLSA TRANSPAR.", "BOLSA COLOR", "VIDRIO", "CABLE ELECTRICO", "OTROS"];
+    "TARJETA", "LAVADORAS", "MOTORES", "RADIADOR Cobre Bronce",
+    "RADIADOR Cobre Aluminio", "RADIADOR ALUMINIO", "VIDRIO", "CABLE ELECTRICO", "OTROS"];
 
         const datosSucursales = {
             "Paraiso": { 
