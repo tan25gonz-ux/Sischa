@@ -365,6 +365,7 @@
         let cajasDataGlobal = [];
         let cierresDelDiaGlobal = []; 
         let facturasHoyGlobal = []; 
+        let estadoDiaGlobal = {}; // ✅ NUEVO: Guarda el detalle del turno en curso
 
         function obtenerFechaHoy() {
             const d = new Date();
@@ -374,7 +375,7 @@
             return `${yyyy}-${mm}-${dd}`;
         }
 
-        // 1. Escuchar Turno Actual (Súper optimizado)
+        // 1. Escuchar Turno Actual (Números globales)
         onSnapshot(collection(db, "cajas_en_vivo"), (snapshot) => {
             cajasDataGlobal = [];
             snapshot.forEach((documento) => {
@@ -383,7 +384,16 @@
             renderizarPanel();
         });
 
-        // 2. Escuchar Cierres del Día (Turnos pasados hoy)
+        // ✅ 2. NUEVO: Escuchar Estado del Día (Detalles de ventas y gastos en curso)
+        onSnapshot(collection(db, "estado_dia"), (snapshot) => {
+            estadoDiaGlobal = {};
+            snapshot.forEach((documento) => {
+                estadoDiaGlobal[documento.id] = documento.data(); // El ID es la sucursal
+            });
+            renderizarPanel();
+        });
+
+        // 3. Escuchar Cierres del Día
         const hoy = obtenerFechaHoy();
         const qCierres = query(collection(db, "revisiones_faltantes"), where("fecha", "==", hoy));
         
@@ -395,7 +405,7 @@
             renderizarPanel(); 
         });
 
-        // 3. Escuchar Facturas Emitidas Hoy (SOLO las de hoy, para no gastar lecturas)
+        // 4. Escuchar Facturas Emitidas Hoy
         const qFacturas = query(collection(db, "facturas_compras"), where("fecha", "==", hoy));
         onSnapshot(qFacturas, (snapshot) => {
             facturasHoyGlobal = [];
@@ -423,13 +433,19 @@
                 const envios = data.admin_envios || [];
                 
                 const cierresSucursalHoy = cierresDelDiaGlobal.filter(c => c.sucursal === data.sucursal);
+                const turnoActual = estadoDiaGlobal[data.sucursal] || {}; // Datos detallados del turno en curso
                 
-                // ✅ CALCULAR INVENTARIO SOLO DE HOY
+                // CALCULAR INVENTARIO Y TOTAL DE FACTURAS DE HOY
                 const facturasSucursalHoy = facturasHoyGlobal.filter(f => f.sucursal === data.sucursal);
+                
                 let inventarioHoy = {};
-                facturasSucursalHoy.forEach(fact => {
-                    if (fact.detalles_materiales) {
-                        fact.detalles_materiales.forEach(m => {
+                let totalComprasDia = 0;
+
+                facturasSucursalHoy.forEach(f => {
+                    totalComprasDia += parseFloat(f.total_factura) || 0;
+                    
+                    if (f.detalles_materiales) {
+                        f.detalles_materiales.forEach(m => {
                             const mat = m.material || 'SIN MATERIAL';
                             const kg = parseFloat(m.kilos) || 0;
                             if (!inventarioHoy[mat]) inventarioHoy[mat] = 0;
@@ -444,21 +460,21 @@
                 let totalVentasDia = 0;
                 let totalGastosDia = 0;
 
-                // A) Del turno en curso
-                if (data.ventas_lista) {
-                    data.ventas_lista.forEach(v => {
+                // A) Del turno en curso (desde estado_dia)
+                if (Array.isArray(turnoActual.ventas_lista)) {
+                    turnoActual.ventas_lista.forEach(v => {
                         listaVentasDetalle.push({ desc: v.descripcion, monto: v.monto, origen: 'En Curso' });
                         totalVentasDia += v.monto;
                     });
                 }
-                if (data.gastos) {
-                    data.gastos.forEach(g => {
+                if (Array.isArray(turnoActual.gastos)) {
+                    turnoActual.gastos.forEach(g => {
                         listaGastosDetalle.push({ desc: g.descripcion, monto: g.monto, origen: 'En Curso' });
                         totalGastosDia += g.monto;
                     });
                 }
 
-                // B) De los turnos cerrados hoy
+                // B) De los turnos cerrados hoy (desde revisiones_faltantes)
                 cierresSucursalHoy.forEach(c => {
                     if (c.detalles_ventas) {
                         c.detalles_ventas.forEach(v => {
@@ -549,12 +565,17 @@
                                 <span class="monto-pos">+₡${(data.ventas || 0).toLocaleString('es-CR')}</span>
                             </div>
                             <div class="detalle-item">
-                                <span>➖ Facturas:</span>
+                                <span>➖ Facturas (Turno Actual):</span>
                                 <span class="monto-neg">-₡${(data.compras_facturas || 0).toLocaleString('es-CR')}</span>
                             </div>
                             <div class="detalle-item">
                                 <span>➖ Gastos:</span>
                                 <span class="monto-neg">-₡${(data.gastos || 0).toLocaleString('es-CR')}</span>
+                            </div>
+                            <!-- TOTAL FACTURAS DEL DÍA -->
+                            <div class="detalle-item" style="background: #fef2f2; padding: 10px; border-radius: 6px; margin-top: 5px; border: 1px solid #fecaca;">
+                                <span style="color:#991b1b; font-weight:800;">🧾 Total Facturas Hoy:</span>
+                                <span class="monto-neg" style="font-size:15px;">-₡${totalComprasDia.toLocaleString('es-CR')}</span>
                             </div>
                         </div>
 
@@ -569,7 +590,7 @@
                                 <div class="lista-header" style="color:#059669;">Ventas (Total Hoy: ₡${totalVentasDia.toLocaleString('es-CR')})</div>
                                 ${htmlVentas}
 
-                                <div class="lista-header" style="color:#dc2626; margin-top:15px;">Gastos (Total Hoy: ₡${totalGastosDia.toLocaleString('es-CR')})</div>
+                                <div class="lista-header" style="color:#d97706; margin-top:15px;">Gastos (Total Hoy: ₡${totalGastosDia.toLocaleString('es-CR')})</div>
                                 ${htmlGastos}
 
                             </div>
