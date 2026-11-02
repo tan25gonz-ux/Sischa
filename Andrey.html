@@ -15,6 +15,7 @@
             --gray-50: #f9fafb;
             --gray-100: #f3f4f6;
             --gray-200: #e5e7eb;
+            --gray-400: #9ca3af;
             --gray-600: #4b5563;
             --gray-800: #1f2937;
             --gray-900: #111827;
@@ -47,6 +48,52 @@
         }
         .header-panel h2 { font-size: 24px; font-weight: 800; margin: 0; }
         .header-panel small { font-size: 14px; opacity: 0.9; }
+
+        /* --- ALERTAS DE CONTENEDORES --- */
+        .alertas-container {
+            background: #fffbeb;
+            border: 2px solid #fcd34d;
+            border-radius: var(--radius);
+            padding: 20px;
+            margin-bottom: 24px;
+            box-shadow: var(--shadow);
+        }
+        .alertas-container h3 {
+            color: #b45309;
+            font-size: 18px;
+            font-weight: 800;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .alerta-item {
+            background: white;
+            padding: 12px 16px;
+            border-radius: 8px;
+            border-left: 4px solid #f59e0b;
+            margin-bottom: 8px;
+            font-size: 14px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .alerta-item:last-child { margin-bottom: 0; }
+        .alerta-sucursal { font-weight: 800; color: var(--gray-800); }
+        .alerta-detalle { color: var(--gray-600); }
+        
+        .btn-resolver-alerta {
+            background: #10b981;
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .btn-resolver-alerta:hover { background: #059669; }
 
         .grid-cajas {
             display: grid;
@@ -229,6 +276,69 @@
             border-bottom: 1px solid var(--gray-200);
         }
 
+        /* MÓDULO DE KILOS POR SUCURSAL */
+        .kilos-card-box {
+            margin-top: 15px;
+            border: 1px solid #bfdbfe;
+            border-radius: 10px;
+            background: #eff6ff;
+            overflow: hidden;
+        }
+        .kilos-card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px;
+            background: #dbeafe;
+            color: #1e3a8a;
+            font-weight: 800;
+            font-size: 13px;
+            cursor: pointer;
+        }
+        .kilos-card-header:hover { background: #bfdbfe; }
+        .btn-add-kilos {
+            background: #2563eb;
+            color: white;
+            border: none;
+            padding: 4px 8px;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: background 0.2s;
+            margin-left: auto;
+            margin-right: 10px;
+        }
+        .btn-add-kilos:hover { background: #1d4ed8; }
+        
+        .kilos-listado-mini {
+            display: none;
+            max-height: 150px;
+            overflow-y: auto;
+            background: white;
+            padding: 10px;
+            border-top: 1px solid #bfdbfe;
+        }
+        .kilos-listado-mini.active { display: block; }
+        .kilos-total-box {
+            background: #e0e7ff;
+            color: #3730a3;
+            padding: 8px;
+            font-size: 12px;
+            font-weight: 800;
+            text-align: center;
+            border-bottom: 1px solid #bfdbfe;
+        }
+        .kilos-mini-item {
+            display: flex;
+            justify-content: space-between;
+            font-size: 11px;
+            color: var(--gray-600);
+            padding: 4px 0;
+            border-bottom: 1px dashed #bfdbfe;
+        }
+        .kilos-mini-item:last-child { border-bottom: none; }
+
         .actions-box {
             margin-top: 20px;
             display: flex;
@@ -313,8 +423,14 @@
         <div class="header-panel">
             <div>
                 <h2>🔴 Panel de Administración</h2>
-                <small>Monitoreo de cajas e inventario en tiempo real</small>
+                <small>Monitoreo de cajas, inventario y solicitudes</small>
             </div>
+        </div>
+
+        <!-- ALERTAS DE CONTENEDORES SOLICITADOS -->
+        <div id="alertas-contenedores" class="alertas-container" style="display: none;">
+            <h3>⚠️ Solicitudes de Contenedores Pendientes</h3>
+            <div id="lista-alertas-contenedores"></div>
         </div>
 
         <div id="contenedor-cajas" class="grid-cajas">
@@ -343,9 +459,33 @@
         </div>
     </div>
 
+    <!-- MODAL PARA AGREGAR KILOS (POR SUCURSAL) -->
+    <div id="modal-kilos" class="modal-overlay">
+        <div class="modal-box">
+            <h3>⚖️ Ingresar Kilos</h3>
+            <p style="font-size:13px; color:var(--gray-600); margin-bottom:16px;">
+                Registrar kilos sueltos para la sucursal <b id="modal-kilos-sucursal-nombre"></b>.
+            </p>
+            
+            <label>Cantidad de Kilos</label>
+            <input type="number" id="input-kilos-cantidad" placeholder="Ej: 150.5" step="0.01">
+            
+            <label>Fecha</label>
+            <input type="date" id="input-kilos-fecha">
+            
+            <label>Motivo</label>
+            <input type="text" id="input-kilos-motivo" placeholder="Ej: Ajuste de inventario">
+
+            <div class="modal-buttons">
+                <button class="btn-cancel" onclick="cerrarModalKilos()">Cancelar</button>
+                <button class="btn-confirm" onclick="guardarKilosSucursal()">💾 Guardar Kilos</button>
+            </div>
+        </div>
+    </div>
+
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getFirestore, collection, onSnapshot, doc, updateDoc, increment, arrayUnion, getDoc, query, where } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        import { getFirestore, collection, onSnapshot, doc, updateDoc, increment, arrayUnion, getDoc, query, where, addDoc, orderBy, limit } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyCi409CkmXBbun7-POejbVaIiThK2nZ1JY",
@@ -360,12 +500,15 @@
         const db = getFirestore(app);
 
         let sucursalSeleccionada = "";
+        let sucursalKilosSeleccionada = "";
         let montoAInyectar = 0;
 
         let cajasDataGlobal = [];
         let cierresDelDiaGlobal = []; 
         let facturasHoyGlobal = []; 
-        let estadoDiaGlobal = {}; // ✅ NUEVO: Guarda el detalle del turno en curso
+        let estadoDiaGlobal = {}; 
+        let pedidosContenedoresGlobal = [];
+        let kilosSueltoGlobal = [];
 
         function obtenerFechaHoy() {
             const d = new Date();
@@ -375,20 +518,20 @@
             return `${yyyy}-${mm}-${dd}`;
         }
 
-        // 1. Escuchar Turno Actual (Números globales)
+        // 1. Escuchar Turno Actual
         onSnapshot(collection(db, "cajas_en_vivo"), (snapshot) => {
             cajasDataGlobal = [];
             snapshot.forEach((documento) => {
-                cajasDataGlobal.push(documento.data());
+                cajasDataGlobal.push({ id: documento.id, ...documento.data() });
             });
             renderizarPanel();
         });
 
-        // ✅ 2. NUEVO: Escuchar Estado del Día (Detalles de ventas y gastos en curso)
+        // 2. Escuchar Estado del Día
         onSnapshot(collection(db, "estado_dia"), (snapshot) => {
             estadoDiaGlobal = {};
             snapshot.forEach((documento) => {
-                estadoDiaGlobal[documento.id] = documento.data(); // El ID es la sucursal
+                estadoDiaGlobal[documento.id] = documento.data();
             });
             renderizarPanel();
         });
@@ -396,7 +539,6 @@
         // 3. Escuchar Cierres del Día
         const hoy = obtenerFechaHoy();
         const qCierres = query(collection(db, "revisiones_faltantes"), where("fecha", "==", hoy));
-        
         onSnapshot(qCierres, (snapshot) => {
             cierresDelDiaGlobal = [];
             snapshot.forEach((documento) => {
@@ -415,8 +557,75 @@
             renderizarPanel();
         });
 
+        // 5. Escuchar Pedidos de Contenedores
+        const qContenedores = query(collection(db, "pedidos_contenedores"), orderBy("fecha_registro", "desc"), limit(15));
+        onSnapshot(qContenedores, (snapshot) => {
+            pedidosContenedoresGlobal = [];
+            snapshot.forEach((documento) => {
+                pedidosContenedoresGlobal.push({ id: documento.id, ...documento.data() });
+            });
+            renderizarAlertasContenedores();
+        });
+
+        // 6. Escuchar Kilos Sueltos
+        const qKilos = query(collection(db, "kilos_sueltos"), orderBy("fecha", "desc"), limit(100));
+        onSnapshot(qKilos, (snapshot) => {
+            kilosSueltoGlobal = [];
+            snapshot.forEach((documento) => {
+                kilosSueltoGlobal.push(documento.data());
+            });
+            renderizarPanel();
+        });
+
         // =====================================================
-        // RENDERIZADO DEL PANEL
+        // RENDERIZADO DE ALERTAS DE CONTENEDORES
+        // =====================================================
+        function renderizarAlertasContenedores() {
+            const container = document.getElementById('alertas-contenedores');
+            const lista = document.getElementById('lista-alertas-contenedores');
+
+            // Filtrar solo los que están Pendientes
+            const pendientes = pedidosContenedoresGlobal.filter(p => p.estado === "Pendiente" || !p.estado);
+
+            if (pendientes.length === 0) {
+                container.style.display = 'none';
+                return;
+            }
+
+            container.style.display = 'block';
+            lista.innerHTML = '';
+
+            pendientes.forEach(p => {
+                lista.innerHTML += `
+                    <div class="alerta-item">
+                        <div>
+                            <span class="alerta-sucursal">📍 ${p.sucursal}</span> 
+                            <span class="alerta-detalle">solicitó el contenedor <b>${p.contenedor}</b></span>
+                            <div style="font-size:12px; color:#b45309; margin-top:4px;">📅 Para: ${p.fecha_pedido}</div>
+                        </div>
+                        <button class="btn-resolver-alerta" onclick="marcarContenedorSolicitado('${p.id}')">✔️ Ya Solicitado</button>
+                    </div>
+                `;
+            });
+        }
+
+        // =====================================================
+        // MARCAR CONTENEDOR COMO SOLICITADO
+        // =====================================================
+        window.marcarContenedorSolicitado = async function(id) {
+            if (!confirm("¿Marcar este contenedor como 'Ya Solicitado'?")) return;
+            try {
+                await updateDoc(doc(db, "pedidos_contenedores", id), {
+                    estado: "Completado"
+                });
+            } catch (error) {
+                console.error(error);
+                alert("❌ Error al actualizar: " + error.message);
+            }
+        };
+
+        // =====================================================
+        // RENDERIZADO DEL PANEL PRINCIPAL
         // =====================================================
         function renderizarPanel() {
             const contenedor = document.getElementById('contenedor-cajas');
@@ -433,9 +642,8 @@
                 const envios = data.admin_envios || [];
                 
                 const cierresSucursalHoy = cierresDelDiaGlobal.filter(c => c.sucursal === data.sucursal);
-                const turnoActual = estadoDiaGlobal[data.sucursal] || {}; // Datos detallados del turno en curso
+                const turnoActual = estadoDiaGlobal[data.sucursal] || {}; 
                 
-                // CALCULAR INVENTARIO Y TOTAL DE FACTURAS DE HOY
                 const facturasSucursalHoy = facturasHoyGlobal.filter(f => f.sucursal === data.sucursal);
                 
                 let inventarioHoy = {};
@@ -454,13 +662,11 @@
                     }
                 });
 
-                // RECOPILAR DETALLES DE VENTAS Y GASTOS (Cerrados + En Curso)
                 let listaVentasDetalle = [];
                 let listaGastosDetalle = [];
                 let totalVentasDia = 0;
                 let totalGastosDia = 0;
 
-                // A) Del turno en curso (desde estado_dia)
                 if (Array.isArray(turnoActual.ventas_lista)) {
                     turnoActual.ventas_lista.forEach(v => {
                         listaVentasDetalle.push({ desc: v.descripcion, monto: v.monto, origen: 'En Curso' });
@@ -474,7 +680,6 @@
                     });
                 }
 
-                // B) De los turnos cerrados hoy (desde revisiones_faltantes)
                 cierresSucursalHoy.forEach(c => {
                     if (c.detalles_ventas) {
                         c.detalles_ventas.forEach(v => {
@@ -490,7 +695,6 @@
                     }
                 });
 
-                // Generar HTML de la lista de ventas
                 let htmlVentas = listaVentasDetalle.length === 0 ? '<div style="color:#94a3b8; font-size:12px; text-align:center;">No hay ventas hoy</div>' : 
                     listaVentasDetalle.map(v => `
                         <div class="lista-item">
@@ -499,7 +703,6 @@
                         </div>
                     `).join('');
 
-                // Generar HTML de la lista de gastos
                 let htmlGastos = listaGastosDetalle.length === 0 ? '<div style="color:#94a3b8; font-size:12px; text-align:center;">No hay gastos hoy</div>' : 
                     listaGastosDetalle.map(g => `
                         <div class="lista-item">
@@ -508,7 +711,6 @@
                         </div>
                     `).join('');
 
-                // Generar HTML del inventario (SOLO HOY)
                 let invHtml = '';
                 let totalKg = 0;
                 const entradasInv = Object.entries(inventarioHoy).filter(([m, kg]) => Math.abs(parseFloat(kg) || 0) > 0.0001);
@@ -524,6 +726,25 @@
                             <div class="inv-item">
                                 <span>${mat}</span>
                                 <span style="color:var(--primary); font-weight:800;">${kgNum.toFixed(2)} kg</span>
+                            </div>
+                        `;
+                    });
+                }
+
+                // FILTRAR KILOS SUELTOS DE ESTA SUCURSAL Y SUMAR TOTAL
+                const kilosSucursal = kilosSueltoGlobal.filter(k => k.sucursal === data.sucursal);
+                let kilosTotalHistorial = 0;
+                let kilosHtml = '';
+
+                if (kilosSucursal.length === 0) {
+                    kilosHtml = '<div style="text-align:center; font-size:11px; color:var(--gray-400); padding:10px;">Sin registros</div>';
+                } else {
+                    kilosSucursal.slice(0, 10).forEach(k => { // Mostrar los últimos 10
+                        kilosTotalHistorial += parseFloat(k.cantidad) || 0;
+                        kilosHtml += `
+                            <div class="kilos-mini-item">
+                                <span>${k.motivo}</span>
+                                <span style="font-weight:800; color:#1e3a8a;">+${k.cantidad} kg</span>
                             </div>
                         `;
                     });
@@ -572,31 +793,25 @@
                                 <span>➖ Gastos:</span>
                                 <span class="monto-neg">-₡${(data.gastos || 0).toLocaleString('es-CR')}</span>
                             </div>
-                            <!-- TOTAL FACTURAS DEL DÍA -->
                             <div class="detalle-item" style="background: #fef2f2; padding: 10px; border-radius: 6px; margin-top: 5px; border: 1px solid #fecaca;">
                                 <span style="color:#991b1b; font-weight:800;">🧾 Total Facturas Hoy:</span>
                                 <span class="monto-neg" style="font-size:15px;">-₡${totalComprasDia.toLocaleString('es-CR')}</span>
                             </div>
                         </div>
 
-                        <!-- ACORDEÓN: DETALLE DE VENTAS Y GASTOS DEL DÍA -->
                         <div class="acordeon-container">
                             <button class="btn-acordeon" onclick="toggleDetalles('${data.sucursal}')">
                                 <span>📊 Detalle del Día (Ventas y Gastos)</span>
                                 <span id="flecha-det-${data.sucursal}">▼</span>
                             </button>
                             <div id="det-${data.sucursal}" class="acordeon-listado">
-                                
                                 <div class="lista-header" style="color:#059669;">Ventas (Total Hoy: ₡${totalVentasDia.toLocaleString('es-CR')})</div>
                                 ${htmlVentas}
-
                                 <div class="lista-header" style="color:#d97706; margin-top:15px;">Gastos (Total Hoy: ₡${totalGastosDia.toLocaleString('es-CR')})</div>
                                 ${htmlGastos}
-
                             </div>
                         </div>
 
-                        <!-- INVENTARIO (SOLO HOY) -->
                         <div class="inventario-container" style="margin-top:0; border-top:none;">
                             <button class="btn-toggle-inventario" onclick="toggleInventario('${data.sucursal}')">
                                 <span>📦 Materiales Comprados Hoy</span>
@@ -605,6 +820,18 @@
                             <div id="inv-${data.sucursal}" class="inventario-listado">
                                 <div class="inv-total">Total Comprado Hoy: ${totalKg.toFixed(2)} kg</div>
                                 ${invHtml}
+                            </div>
+                        </div>
+
+                        <!-- MÓDULO DE KILOS POR SUCURSAL -->
+                        <div class="kilos-card-box">
+                            <div class="kilos-card-header" onclick="toggleKilos('${data.sucursal}')">
+                                <span>⚖️ Kilos Sueltos (Total: ${kilosTotalHistorial.toFixed(2)} kg)</span>
+                                <button class="btn-add-kilos" onclick="event.stopPropagation(); abrirModalKilos('${data.sucursal}')">➕ Ingresar</button>
+                                <span id="flecha-kilos-${data.sucursal}">▼</span>
+                            </div>
+                            <div id="kilos-${data.sucursal}" class="kilos-listado-mini">
+                                ${kilosHtml}
                             </div>
                         </div>
 
@@ -646,8 +873,65 @@
             }
         };
 
+        // NUEVA FUNCIÓN PARA EL ACORDEÓN DE KILOS
+        window.toggleKilos = function(sucursal) {
+            const div = document.getElementById(`kilos-${sucursal}`);
+            const flecha = document.getElementById(`flecha-kilos-${sucursal}`);
+            if (div.classList.contains('active')) {
+                div.classList.remove('active');
+                flecha.innerText = '▼';
+            } else {
+                div.classList.add('active');
+                flecha.innerText = '▲';
+            }
+        };
+
         // =====================================================
-        // LÓGICA DEL MODAL (Inyección de dinero)
+        // MODAL KILOS
+        // =====================================================
+        window.abrirModalKilos = function(sucursal) {
+            sucursalKilosSeleccionada = sucursal;
+            document.getElementById('modal-kilos-sucursal-nombre').innerText = sucursal;
+            document.getElementById('input-kilos-cantidad').value = '';
+            document.getElementById('input-kilos-fecha').value = new Date().toISOString().split('T')[0];
+            document.getElementById('input-kilos-motivo').value = '';
+            document.getElementById('modal-kilos').classList.add('active');
+        };
+
+        window.cerrarModalKilos = function() {
+            document.getElementById('modal-kilos').classList.remove('active');
+            sucursalKilosSeleccionada = "";
+        };
+
+        window.guardarKilosSucursal = async function() {
+            const cantidad = parseFloat(document.getElementById('input-kilos-cantidad').value);
+            const fecha = document.getElementById('input-kilos-fecha').value;
+            const motivo = document.getElementById('input-kilos-motivo').value.trim();
+
+            if (!cantidad || cantidad <= 0 || !fecha || !motivo) {
+                alert("⚠️ Por favor, completa todos los campos correctamente.");
+                return;
+            }
+
+            try {
+                await addDoc(collection(db, "kilos_sueltos"), {
+                    sucursal: sucursalKilosSeleccionada,
+                    cantidad: cantidad,
+                    fecha: fecha,
+                    motivo: motivo,
+                    timestamp: new Date()
+                });
+                
+                alert("✅ Kilos guardados correctamente.");
+                cerrarModalKilos();
+            } catch (error) {
+                console.error(error);
+                alert("❌ Error al guardar kilos: " + error.message);
+            }
+        };
+
+        // =====================================================
+        // MODAL INYECTAR DINERO
         // =====================================================
         window.abrirModal = function(sucursal) {
             sucursalSeleccionada = sucursal;
@@ -678,7 +962,7 @@
                 return;
             }
 
-            const btn = document.querySelector('.btn-confirm');
+            const btn = document.querySelector('#modal-inyectar .btn-confirm');
             btn.disabled = true; btn.innerText = "⏳ Enviando...";
 
             try {
