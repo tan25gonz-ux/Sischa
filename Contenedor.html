@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pedido de Contenedores</title>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+        import { getFirestore, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyCi409CkmXBbun7-POejbVaIiThK2nZ1JY",
+            authDomain: "prestamos-18dd8.firebaseapp.com",
+            projectId: "prestamos-18dd8",
+            storageBucket: "prestamos-18dd8.firebasestorage.app",
+            messagingSenderId: "921713515466",
+            appId: "1:921713515466:web:0e2bcb5d67067068570d33"
+        };
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const auth = getAuth(app);
+
+        // Verificar que el usuario esté logueado
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                document.getElementById('form-container').style.display = 'block';
+            } else {
+                alert("Por favor inicia sesión primero.");
+                window.location.href = "index.html";
+            }
+        });
+
+        // Función para guardar el pedido
+        window.guardarPedido = async () => {
+            const contenedor = document.getElementById('selectContenedor').value;
+            const fecha = document.getElementById('fechaPedido').value;
+
+            if (!contenedor || !fecha) {
+                alert("⚠️ Por favor, selecciona un contenedor y una fecha.");
+                return;
+            }
+
+            const btn = document.getElementById('btnGuardar');
+            btn.innerText = "Guardando...";
+            btn.disabled = true;
+
+            try {
+                await addDoc(collection(db, "pedidos_contenedores"), {
+                    contenedor: contenedor,
+                    fecha_pedido: fecha,
+                    fecha_registro: serverTimestamp(),
+                    estado: "Pendiente"
+                });
+                
+                alert("✅ Pedido guardado correctamente.");
+                
+                // Limpiar formulario
+                document.getElementById('selectContenedor').value = "";
+                document.getElementById('fechaPedido').value = "";
+                
+            } catch (error) {
+                console.error("Error al guardar:", error);
+                alert("Error al guardar el pedido: " + error.message);
+            } finally {
+                btn.innerText = "Guardar Pedido";
+                btn.disabled = false;
+            }
+        };
+    </script>
+
+    <style>
+        :root {
+            --bg-main: #f8fafc;
+            --surface: #ffffff;
+            --primary: #2563eb;
+            --text-dark: #0f172a;
+            --text-muted: #64748b;
+            --border-color: #e2e8f0;
+            --radius-lg: 12px;
+            --radius-md: 8px;
+        }
+        * { box-sizing: border-box; }
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg-main);
+            margin: 0;
+            padding: 24px;
+            color: var(--text-dark);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+        
+        .card {
+            background: var(--surface);
+            padding: 32px;
+            border-radius: var(--radius-lg);
+            border: 1px solid var(--border-color);
+            width: 100%;
+            max-width: 450px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+        }
+
+        .header h2 {
+            margin: 0 0 8px 0;
+            font-size: 22px;
+            font-weight: 800;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .header p {
+            margin: 0 0 24px 0;
+            color: var(--text-muted);
+            font-size: 14px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            font-size: 13px;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: var(--text-dark);
+        }
+        
+        input, select {
+            width: 100%;
+            padding: 12px 14px;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            font-size: 14px;
+            font-family: 'Inter', sans-serif;
+            color: var(--text-dark);
+            outline: none;
+            background: #f8fafc;
+            transition: all 0.2s;
+        }
+        input:focus, select:focus {
+            border-color: var(--primary);
+            background: #ffffff;
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+        }
+
+        .btn-save {
+            width: 100%;
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 14px;
+            border-radius: var(--radius-md);
+            font-size: 15px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: background 0.2s;
+            margin-top: 10px;
+        }
+        .btn-save:hover {
+            background: #1d4ed8;
+        }
+        .btn-save:disabled {
+            background: #94a3b8;
+            cursor: not-allowed;
+        }
+
+        /* Botón para volver al panel */
+        .btn-back {
+            display: block;
+            text-align: center;
+            margin-top: 20px;
+            color: var(--text-muted);
+            text-decoration: none;
+            font-size: 13px;
+            font-weight: 600;
+        }
+        .btn-back:hover {
+            color: var(--primary);
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Contenedor del formulario (oculto hasta que inicie sesión) -->
+    <div id="form-container" class="card" style="display: none;">
+        
+        <div class="header">
+            <h2>📦 Registro de Contenedor</h2>
+            <p>Selecciona el contenedor y la fecha en que se solicita.</p>
+        </div>
+
+        <div class="form-group">
+            <label for="selectContenedor">Contenedor</label>
+            <select id="selectContenedor">
+                <option value="">Seleccione un contenedor...</option>
+                <option value="Sunil">Sunil</option>
+                <option value="Summit">Summit</option>
+                <option value="Luis Suarez">Luis Suarez</option>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label for="fechaPedido">Fecha del Pedido</label>
+            <input type="date" id="fechaPedido">
+        </div>
+
+        <button id="btnGuardar" class="btn-save" onclick="guardarPedido()">
+            Guardar Pedido
+        </button>
+
+        <a href="cierre.html" class="btn-back">← Volver al Panel</a>
+    </div>
+
+</body>
+</html>
