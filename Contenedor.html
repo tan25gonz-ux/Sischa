@@ -38,11 +38,12 @@
 
         // Función para guardar el pedido
         window.guardarPedido = async () => {
+            const sucursal = document.getElementById('selectSucursal').value;
             const contenedor = document.getElementById('selectContenedor').value;
             const fecha = document.getElementById('fechaPedido').value;
 
-            if (!contenedor || !fecha) {
-                alert("⚠️ Por favor, selecciona un contenedor y una fecha.");
+            if (!sucursal || !contenedor || !fecha) {
+                alert("⚠️ Por favor, completa todos los campos (Sucursal, Contenedor y Fecha).");
                 return;
             }
 
@@ -52,6 +53,7 @@
 
             try {
                 await addDoc(collection(db, "pedidos_contenedores"), {
+                    sucursal: sucursal,
                     contenedor: contenedor,
                     fecha_pedido: fecha,
                     fecha_registro: serverTimestamp(),
@@ -61,6 +63,7 @@
                 alert("✅ Pedido guardado correctamente.");
                 
                 // Limpiar formulario
+                document.getElementById('selectSucursal').value = "";
                 document.getElementById('selectContenedor').value = "";
                 document.getElementById('fechaPedido').value = "";
                 
@@ -194,7 +197,17 @@
         
         <div class="header">
             <h2>📦 Registro de Contenedor</h2>
-            <p>Selecciona el contenedor y la fecha en que se solicita.</p>
+            <p>Selecciona la sucursal, el contenedor y la fecha.</p>
+        </div>
+
+        <div class="form-group">
+            <label for="selectSucursal">Sucursal que solicita</label>
+            <select id="selectSucursal">
+                <option value="">Seleccione una sucursal...</option>
+                <option value="Perez">Pérez</option>
+                <option value="Paraiso">Paraíso</option>
+                <option value="Cartago">Cartago</option>
+            </select>
         </div>
 
         <div class="form-group">
