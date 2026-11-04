@@ -556,8 +556,8 @@
 
         let cajasDataGlobal = [];
         let cierresDelDiaGlobal = []; 
-        let todasLasFacturasGlobal = []; 
-        let inventarioGlobalDB = {}; // NUEVO: Guarda el inventario directo de la BD
+        let facturasHoyGlobal = []; // Ahora solo guarda las de hoy
+        let inventarioGlobalDB = {}; 
         let estadoDiaGlobal = {}; 
         let pedidosContenedoresGlobal = [];
         let kilosSueltoGlobal = [];
@@ -599,17 +599,17 @@
             renderizarPanel(); 
         });
 
-        // 4. Escuchar TODAS las Facturas (para el inventario del día)
-        const qTodasFacturas = query(collection(db, "facturas_compras"), limit(1000));
-        onSnapshot(qTodasFacturas, (snapshot) => {
-            todasLasFacturasGlobal = [];
+        // 4. Escuchar SOLO las Facturas de HOY (¡Corrección aquí!)
+        const qFacturasHoy = query(collection(db, "facturas_compras"), where("fecha", "==", hoy));
+        onSnapshot(qFacturasHoy, (snapshot) => {
+            facturasHoyGlobal = [];
             snapshot.forEach((documento) => {
-                todasLasFacturasGlobal.push(documento.data());
+                facturasHoyGlobal.push(documento.data());
             });
             renderizarPanel();
         });
 
-        // 4.5 NUEVO: Escuchar la colección "inventario" (para el inventario histórico real)
+        // 5. Escuchar la colección "inventario" (para el inventario histórico real)
         onSnapshot(collection(db, "inventario"), (snapshot) => {
             inventarioGlobalDB = {};
             snapshot.forEach((documento) => {
@@ -619,7 +619,7 @@
             renderizarPanel();
         });
 
-        // 5. Escuchar Pedidos de Contenedores
+        // 6. Escuchar Pedidos de Contenedores
         const qContenedores = query(collection(db, "pedidos_contenedores"), orderBy("fecha_registro", "desc"), limit(15));
         onSnapshot(qContenedores, (snapshot) => {
             pedidosContenedoresGlobal = [];
@@ -629,7 +629,7 @@
             renderizarAlertasContenedores();
         });
 
-        // 6. Escuchar Kilos Sueltos
+        // 7. Escuchar Kilos Sueltos
         const qKilos = query(collection(db, "kilos_sueltos"), orderBy("fecha", "desc"), limit(100));
         onSnapshot(qKilos, (snapshot) => {
             kilosSueltoGlobal = [];
@@ -705,8 +705,8 @@
                 const cierresSucursalHoy = cierresDelDiaGlobal.filter(c => c.sucursal === data.sucursal);
                 const turnoActual = estadoDiaGlobal[data.sucursal] || {}; 
                 
-                // --- CÁLCULOS DEL DÍA ---
-                const facturasSucursalHoy = todasLasFacturasGlobal.filter(f => f.sucursal === data.sucursal && f.fecha === hoy);
+                // --- CÁLCULOS DEL DÍA (Usando las facturas filtradas de hoy) ---
+                const facturasSucursalHoy = facturasHoyGlobal.filter(f => f.sucursal === data.sucursal);
                 
                 let inventarioHoy = {};
                 let totalComprasDia = 0;
@@ -729,7 +729,6 @@
                 let inventarioHistoricoAgrupado = {};
                 let totalKgHistorico = 0;
 
-                // Agrupamos ignorando mayúsculas/minúsculas para evitar duplicados visuales
                 Object.entries(inventarioSucursalBD).forEach(([mat, kg]) => {
                     const kgNum = parseFloat(kg) || 0;
                     if (kgNum > 0) {
@@ -745,7 +744,6 @@
                 if (entradasHist.length === 0) {
                     invHistHtml = `<div style="padding:10px; text-align:center; font-size:12px; color:var(--gray-400);">Sin historial de compras</div>`;
                 } else {
-                    // Ordenar alfabéticamente
                     entradasHist.sort((a, b) => a[0].localeCompare(b[0])); 
                     entradasHist.forEach(([mat, kg]) => {
                         totalKgHistorico += kg;
@@ -836,7 +834,7 @@
                 if (kilosSucursal.length === 0) {
                     kilosHtml = '<div style="text-align:center; font-size:11px; color:var(--gray-400); padding:10px;">Sin registros</div>';
                 } else {
-                    kilosSucursal.slice(0, 10).forEach(k => { // Mostrar los últimos 10
+                    kilosSucursal.slice(0, 10).forEach(k => { 
                         kilosTotalHistorial += parseFloat(k.cantidad) || 0;
                         kilosHtml += `
                             <div class="kilos-mini-item">
