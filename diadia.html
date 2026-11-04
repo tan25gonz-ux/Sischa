@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Descargar Facturas por Día (ZIP)</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Librerías para generar PDF y ZIP -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        :root {
+            --primary: #4f46e5;
+            --primary-dark: #4338ca;
+            --success: #10b981;
+            --danger: #ef4444;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --radius: 16px;
+            --shadow: 0 4px 6px -1px rgba(0,0,0,0.07);
+            --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.08);
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #f1f5f9;
+            background-image: radial-gradient(at 0% 0%, rgba(79, 70, 229, 0.06) 0px, transparent 50%),
+                              radial-gradient(at 100% 0%, rgba(14, 165, 233, 0.06) 0px, transparent 50%);
+            color: var(--gray-800);
+            padding: 20px;
+            min-height: 100vh;
+        }
+
+        .app-container { max-width: 1000px; margin: 0 auto; }
+
+        .header-panel {
+            background: linear-gradient(135deg, var(--primary) 0%, #8b5cf6 100%);
+            padding: 24px 32px;
+            border-radius: var(--radius);
+            box-shadow: var(--shadow-lg);
+            margin-bottom: 24px;
+            color: white;
+        }
+        .header-panel h2 { font-size: 24px; font-weight: 800; margin: 0; }
+        .header-panel small { font-size: 14px; opacity: 0.9; }
+
+        .filtros-card {
+            background: white;
+            padding: 20px 24px;
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            margin-bottom: 24px;
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            align-items: flex-end;
+            border: 1px solid var(--gray-200);
+        }
+        .form-group { flex: 1; min-width: 200px; }
+        .form-group label {
+            display: block;
+            font-size: 13px;
+            font-weight: 700;
+            color: var(--gray-600);
+            margin-bottom: 8px;
+        }
+        .form-control {
+            width: 100%;
+            padding: 12px 16px;
+            border: 1.5px solid var(--gray-200);
+            border-radius: 8px;
+            font-size: 15px;
+            font-family: inherit;
+            transition: all 0.2s;
+        }
+        .form-control:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.1); }
+
+        .btn-buscar {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 15px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s;
+            height: 45px;
+        }
+        .btn-buscar:hover { background: var(--primary-dark); }
+        .btn-buscar:disabled { opacity: 0.6; cursor: not-allowed; }
+
+        .card-tabla {
+            background: white;
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            border: 1px solid var(--gray-200);
+            overflow: hidden;
+            margin-bottom: 24px;
+        }
+        .card-tabla-header {
+            padding: 16px 20px;
+            background: var(--gray-50);
+            border-bottom: 1px solid var(--gray-200);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .card-tabla-header h3 { font-size: 16px; font-weight: 800; color: var(--gray-800); }
+
+        .btn-descargar {
+            background: linear-gradient(135deg, var(--success), #059669);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 700;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.2s;
+        }
+        .btn-descargar:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3); }
+        .btn-descargar:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+
+        .tabla-wrapper { max-height: 400px; overflow-y: auto; }
+        table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        th { text-align: left; padding: 12px 20px; background: white; color: var(--gray-500); font-size: 11px; text-transform: uppercase; border-bottom: 1px solid var(--gray-200); position: sticky; top: 0; }
+        td { padding: 12px 20px; border-bottom: 1px solid var(--gray-100); font-weight: 600; color: var(--gray-700); }
+        tbody tr:hover { background: var(--gray-50); }
+        .text-right { text-align: right; }
+
+        /* Barra de progreso */
+        .progreso-container {
+            display: none;
+            margin-top: 15px;
+            background: var(--gray-100);
+            border-radius: 10px;
+            overflow: hidden;
+            height: 24px;
+            position: relative;
+        }
+        .progreso-barra {
+            height: 100%;
+            background: linear-gradient(90deg, var(--primary), var(--success));
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+        .progreso-texto {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: 800;
+            color: var(--gray-900);
+        }
+
+        .empty-state { text-align: center; padding: 40px; color: var(--gray-500); font-size: 14px; }
+    </style>
+</head>
+<body>
+
+    <div class="app-container">
+        <div class="header-panel">
+            <h2>📦 Descarga Masiva de Facturas</h2>
+            <small>Selecciona el día y la sucursal para descargar todos los PDFs en un solo archivo ZIP.</small>
+        </div>
+
+        <!-- FILTROS -->
+        <div class="filtros-card">
+            <div class="form-group">
+                <label>📍 Sucursal</label>
+                <select id="filtroSucursal" class="form-control">
+                    <option value="Perez">Pérez</option>
+                    <option value="Paraiso">Paraíso</option>
+                    <option value="Cartago">Cartago</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>📅 Fecha a Descargar</label>
+                <input type="date" id="filtroFecha" class="form-control">
+            </div>
+            <button class="btn-buscar" onclick="buscarFacturas()" id="btnBuscar">
+                🔎 Buscar Facturas
+            </button>
+        </div>
+
+        <!-- RESULTADOS -->
+        <div id="seccionResultados" style="display: none;">
+            <div class="card-tabla">
+                <div class="card-tabla-header">
+                    <h3>Facturas Encontradas (<span id="cantidadFacturas">0</span>)</h3>
+                    <button class="btn-descargar" onclick="descargarTodoZip()" id="btnDescargarZip">
+                        📥 Descargar Todo en ZIP
+                    </button>
+                </div>
+                
+                <div class="tabla-wrapper">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th># Factura</th>
+                                <th>Cliente</th>
+                                <th class="text-right">Monto</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tablaFacturas">
+                            <!-- Datos JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- BARRA DE PROGRESO -->
+            <div class="progreso-container" id="progresoContainer">
+                <div class="progreso-barra" id="progresoBarra"></div>
+                <div class="progreso-texto" id="progresoTexto">0%</div>
+            </div>
+        </div>
+
+        <div id="estadoInicial" class="empty-state">
+            👆 Selecciona una fecha y presiona "Buscar Facturas".
+        </div>
+
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getFirestore, collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyCi409CkmXBbun7-POejbVaIiThK2nZ1JY",
+            authDomain: "prestamos-18dd8.firebaseapp.com",
+            projectId: "prestamos-18dd8",
+            storageBucket: "prestamos-18dd8.firebasestorage.app",
+            messagingSenderId: "921713515466",
+            appId: "1:921713515466:web:0e2bcb5d67067068570d33"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        const datosSucursales = {
+            "Paraiso": { nombre: "Grupo Ingeniería Verde", encargado: "Andrey Brenes León", cedula: "3-0393-0862", direccion: "Cartago", telefono: "8342-1610", correo: "grupoingenieriaverde@gmail.com" },
+            "Perez": { nombre: "LA CAMPINA - Centro de Acopio y Reciclaje", encargado: "MOISÉS COTO ROJAS", telefono: "8964-7726 / 8342-1610", direccion: "Pérez Zeledón - Repunta - San José - Costa Rica", correo: "" },
+            "Cartago": { nombre: "Centro de reciclaje el Guarco", encargado: "Marvin Eduardo Brenes León", cedula: "3-0367-0749", direccion: "Cartago, Tejar de El Guarco", telefono: "8342-1610", correo: "centroacopioeltejar@hotmail.com" }
+        };
+
+        let facturasEncontradas = [];
+        let sucursalActual = "Perez";
+
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('filtroFecha').value = new Date().toISOString().split('T')[0];
+        });
+
+        // =====================================================
+        // BUSCAR FACTURAS
+        // =====================================================
+        window.buscarFacturas = async function() {
+            sucursalActual = document.getElementById('filtroSucursal').value;
+            const fecha = document.getElementById('filtroFecha').value;
+
+            if (!fecha) {
+                alert("⚠️ Selecciona una fecha.");
+                return;
+            }
+
+            const btn = document.getElementById('btnBuscar');
+            btn.disabled = true; btn.innerText = "⏳ Buscando...";
+
+            try {
+                const q = query(
+                    collection(db, "facturas_compras"),
+                    where("sucursal", "==", sucursalActual),
+                    where("fecha", "==", fecha)
+                );
+
+                const querySnapshot = await getDocs(q);
+                facturasEncontradas = [];
+
+                querySnapshot.forEach((doc) => {
+                    facturasEncontradas.push(doc.data());
+                });
+
+                facturasEncontradas.sort((a, b) => (parseInt(a.num_factura) || 0) - (parseInt(b.num_factura) || 0));
+
+                if (facturasEncontradas.length === 0) {
+                    alert("ℹ️ No hay facturas para esta sucursal en esa fecha.");
+                    document.getElementById('seccionResultados').style.display = 'none';
+                    document.getElementById('estadoInicial').style.display = 'block';
+                    return;
+                }
+
+                document.getElementById('estadoInicial').style.display = 'none';
+                document.getElementById('seccionResultados').style.display = 'block';
+                document.getElementById('cantidadFacturas').innerText = facturasEncontradas.length;
+
+                const tbody = document.getElementById('tablaFacturas');
+                tbody.innerHTML = "";
+                facturasEncontradas.forEach(fac => {
+                    tbody.innerHTML += `
+                        <tr>
+                            <td><span style="background:#dbeafe; color:#1e40af; padding:2px 8px; border-radius:10px; font-size:11px;">#${fac.num_factura}</span></td>
+                            <td><b>${fac.nombre}</b><br><small style="color:#6b7280; font-weight:400;">${fac.cedula}</small></td>
+                            <td class="text-right" style="color:var(--primary);">₡${(parseFloat(fac.total_factura)||0).toLocaleString('es-CR')}</td>
+                        </tr>
+                    `;
+                });
+
+            } catch (error) {
+                console.error(error);
+                alert("❌ Error al buscar: " + error.message);
+            } finally {
+                btn.disabled = false; btn.innerText = "🔎 Buscar Facturas";
+            }
+        };
+
+        // =====================================================
+        // GENERAR HTML PARA PDF (RETORNA OBJETO CON AMBAS PÁGINAS)
+        // =====================================================
+        function generarHTMLFactura(fact, fecha) {
+            const datosSuc = datosSucursales[sucursalActual] || { nombre: sucursalActual };
+            
+            let tieneAlertaChatarra = false;
+            let materialesAnomalos = [];
+
+            // 1. GENERAR FILAS DE LA FACTURA (LIMPIAS)
+            const detalles = fact.detalles_materiales.map(m => {
+                const esChatarra = m.material.toUpperCase().trim() === "CHATARRA";
+                const precioAnomalo = esChatarra && (m.precio_unitario > 90 || m.precio_unitario < 45);
+                
+                if (precioAnomalo) {
+                    tieneAlertaChatarra = true;
+                    materialesAnomalos.push(m);
+                }
+
+                return `<tr>
+                    <td style="padding:8px 10px; border-bottom:1px solid #e2e8f0; font-size:12px;">${m.material} a ₡${m.precio_unitario.toLocaleString('es-CR')}</td>
+                    <td style="padding:8px 10px; border-bottom:1px solid #e2e8f0; text-align:center; font-size:12px;">${m.kilos} kg</td>
+                    <td style="padding:8px 10px; border-bottom:1px solid #e2e8f0; text-align:right; font-size:12px;">₡${m.precio_unitario.toLocaleString('es-CR')}</td>
+                    <td style="padding:8px 10px; border-bottom:1px solid #e2e8f0; text-align:right; font-size:12px; font-weight:600;">₡${m.total_pago.toLocaleString('es-CR')}</td>
+                </tr>`;
+            }).join('');
+            
+            const firmaHTML = fact.firma ?
+                `<div style="margin-top:20px; border-top:2px solid #2b6cb0; padding-top:10px; text-align:center;"><p style="font-weight:bold; font-size:12px;">Firma del Cliente</p><img src="${fact.firma}" style="width:100%; max-width:250px; max-height:100px; object-fit:contain; border:1px solid #cbd5e1; border-radius:6px; padding:4px;"></div>` :
+                `<div style="margin-top:20px; border-top:2px solid #2b6cb0; padding-top:10px; text-align:center;"><p style="font-weight:bold; font-size:12px;">Firma del Cliente</p><div style="height:50px; border-bottom:1px solid #333; width:200px; margin:0 auto;"></div></div>`;
+            
+            let lineasSuc = '';
+            if (datosSuc.nombre) lineasSuc += `<h1 style="font-size:18px; margin:0; color:#2b6cb0;">📍 ${datosSuc.nombre}</h1>`;
+            if (datosSuc.encargado) lineasSuc += `<p style="margin:2px 0 0; font-size:12px;">Encargado: ${datosSuc.encargado}</p>`;
+            if (datosSuc.cedula) lineasSuc += `<p style="margin:2px 0 0; font-size:11px;">Cédula: ${datosSuc.cedula}</p>`;
+            if (datosSuc.direccion) lineasSuc += `<p style="margin:2px 0 0; font-size:11px;">Dirección: ${datosSuc.direccion}</p>`;
+            if (datosSuc.telefono) lineasSuc += `<p style="margin:2px 0 0; font-size:11px;">Tel: ${datosSuc.telefono}</p>`;
+            
+            const firmaDuenoHTML = `
+                <div style="margin-top:20px; text-align:center;">
+                    <p style="font-weight:bold; font-size:12px; margin-bottom:10px;">Firma dueño de material entregado</p>
+                    <p style="font-size:11px; color:#333;">El material entregado es de su propiedad</p>
+                </div>`;
+
+            // PÁGINA 1: FACTURA LIMPIA
+            const htmlFactura = `
+                <div style="font-family:'Segoe UI',Arial,sans-serif; width: 794px; min-height: 1123px; padding: 30px; background:white; box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:3px solid #2b6cb0; padding-bottom:10px; margin-bottom:15px;">
+                        <div style="width: 60%;">${lineasSuc}</div>
+                        <div style="text-align:right; width: 40%;">
+                            <h2 style="font-size:16px; margin:0;">FACTURA #${fact.num_factura}</h2>
+                            <p style="margin:2px 0 0; font-size:12px;">Fecha: ${fecha}</p>
+                        </div>
+                    </div>
+                    
+                    <div style="background:#f7fafc; padding:10px 15px; border-radius:6px; margin-bottom:15px; border:1px solid #e2e8f0;">
+                        <p style="margin:2px 0; font-size:13px;"><strong>Cliente:</strong> ${fact.nombre}</p>
+                        <p style="margin:2px 0; font-size:13px;"><strong>Cédula:</strong> ${fact.cedula}</p>
+                    </div>
+                    <table style="width:100%; border-collapse:collapse; margin-bottom:15px; font-size:13px; border:1px solid #e2e8f0;">
+                        <thead><tr style="background:#2b6cb0; color:white; -webkit-print-color-adjust: exact;">
+                            <th style="padding:8px 10px; text-align:left; font-size:11px;">Material</th>
+                            <th style="padding:8px 10px; text-align:center; font-size:11px;">Cantidad</th>
+                            <th style="padding:8px 10px; text-align:right; font-size:11px;">Precio U.</th>
+                            <th style="padding:8px 10px; text-align:right; font-size:11px;">Importe</th>
+                        </tr></thead>
+                        <tbody>${detalles}</tbody>
+                    </table>
+                    <div style="display:flex; justify-content:flex-end; margin-bottom:15px;">
+                        <div style="width:50%;">
+                            <div style="display:flex; justify-content:space-between; padding:8px 12px; font-size:16px; font-weight:bold; background:#ebf8ff; border-radius:6px;">
+                                <span>TOTAL:</span><span>₡${fact.total_factura.toLocaleString('es-CR')}</span>
+                            </div>
+                        </div>
+                    </div>
+                    ${firmaHTML}
+                    ${firmaDuenoHTML}
+                    <div style="text-align:center; margin-top:20px; font-size:10px; color:#718096; border-top:1px solid #e2e8f0; padding-top:10px;">Gracias por su visita</div>
+                </div>
+            `;
+
+            // PÁGINA 2: ALERTAS (Solo se genera si hay anomalías)
+            let htmlAlerta = "";
+            if (tieneAlertaChatarra) {
+                let anomalosHTML = materialesAnomalos.map(m => `
+                    <tr>
+                        <td style="padding:8px 10px; border-bottom:1px solid #e2e8f0; font-size:12px; color: #991b1b; font-weight: bold;">⚠️ ${m.material}</td>
+                        <td style="padding:8px 10px; border-bottom:1px solid #e2e8f0; text-align:center; font-size:12px; color: #991b1b;">${m.kilos} kg</td>
+                        <td style="padding:8px 10px; border-bottom:1px solid #e2e8f0; text-align:right; font-size:12px; color: #991b1b;">₡${m.precio_unitario.toLocaleString('es-CR')}</td>
+                        <td style="padding:8px 10px; border-bottom:1px solid #e2e8f0; text-align:right; font-size:12px; color: #991b1b;">₡${m.total_pago.toLocaleString('es-CR')}</td>
+                    </tr>
+                `).join('');
+
+                htmlAlerta = `
+                    <div style="font-family:'Segoe UI',Arial,sans-serif; width: 794px; min-height: 1123px; padding: 30px; background:white; box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact;">
+                        <div style="text-align:center; margin-top: 50px; margin-bottom: 30px;">
+                            <h1 style="color: #ef4444; font-size: 24px; margin: 0;">⚠️ REPORTE INTERNO DE ANOMALÍAS</h1>
+                            <p style="color: #6b7280; font-size: 14px; margin-top: 5px;">Documento de auditoría (No entregar al cliente)</p>
+                        </div>
+                        
+                        <div style="background-color: #fef2f2; border: 2px solid #ef4444; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+                            <p style="color: #991b1b; font-size: 14px; margin: 0;">
+                                <strong>Motivo de la alerta:</strong> Se detectaron materiales con precios fuera del rango establecido (CHATARRA a más de ₡80 o menos de ₡75).
+                            </p>
+                        </div>
+
+                        <div style="background:#f7fafc; padding:10px 15px; border-radius:6px; margin-bottom:15px; border:1px solid #e2e8f0;">
+                            <p style="margin:2px 0; font-size:13px;"><strong>Factura #:</strong> ${fact.num_factura}</p>
+                            <p style="margin:2px 0; font-size:13px;"><strong>Cliente:</strong> ${fact.nombre}</p>
+                            <p style="margin:2px 0; font-size:13px;"><strong>Fecha:</strong> ${fecha}</p>
+                        </div>
+
+                        <table style="width:100%; border-collapse:collapse; font-size:13px; border:1px solid #e2e8f0; margin-top: 20px;">
+                            <thead>
+                                <tr style="background:#fca5a5; color:#7f1d1d;">
+                                    <th style="padding:10px; text-align:left;">Material</th>
+                                    <th style="padding:10px; text-align:center;">Cantidad</th>
+                                    <th style="padding:10px; text-align:right;">Precio Pagado</th>
+                                    <th style="padding:10px; text-align:right;">Total Pagado</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${anomalosHTML}
+                            </tbody>
+                        </table>
+
+                        <div style="margin-top: 50px; border-top: 1px dashed #cbd5e1; padding-top: 20px;">
+                            <p style="font-size: 12px; color: #6b7280; text-align: center;">Generado automáticamente por el Sistema de Facturación</p>
+                        </div>
+                    </div>
+                `;
+            }
+
+            return { htmlFactura, htmlAlerta };
+        }
+
+        // =====================================================
+        // DESCARGAR TODAS EN ZIP (CON PAGINACIÓN MANUAL EXACTA)
+        // =====================================================
+        window.descargarTodoZip = async function() {
+            if (facturasEncontradas.length === 0) return;
+
+            const btn = document.getElementById('btnDescargarZip');
+            const progresoContainer = document.getElementById('progresoContainer');
+            const progresoBarra = document.getElementById('progresoBarra');
+            const progresoTexto = document.getElementById('progresoTexto');
+
+            btn.disabled = true;
+            progresoContainer.style.display = 'block';
+            
+            const zip = new JSZip();
+            const fecha = document.getElementById('filtroFecha').value;
+            const nombreCarpeta = `Facturas_${sucursalActual}_${fecha}`;
+            const folder = zip.folder(nombreCarpeta);
+
+            try {
+                for (let i = 0; i < facturasEncontradas.length; i++) {
+                    const fact = facturasEncontradas[i];
+                    
+                    const porcentaje = Math.round(((i) / facturasEncontradas.length) * 100);
+                    progresoBarra.style.width = `${porcentaje}%`;
+                    progresoTexto.innerText = `Generando PDF ${i + 1} de ${facturasEncontradas.length}... (${porcentaje}%)`;
+
+                    const { htmlFactura, htmlAlerta } = generarHTMLFactura(fact, fecha);
+
+                    // --- PROCESAR FACTURA (HOJA 1) ---
+                    const divFactura = document.createElement('div');
+                    divFactura.innerHTML = htmlFactura;
+                    divFactura.style.position = 'absolute';
+                    divFactura.style.top = '0';
+                    divFactura.style.left = '0';
+                    divFactura.style.width = '794px';
+                    divFactura.style.zIndex = '-9999';
+                    divFactura.style.background = '#ffffff';
+                    document.body.appendChild(divFactura);
+
+                    await new Promise(r => setTimeout(r, 200)); // Esperar firmas
+
+                    const canvasFactura = await html2canvas(divFactura, { scale: 2, useCORS: true, backgroundColor: '#ffffff', logging: false });
+                    document.body.removeChild(divFactura);
+
+                    const { jsPDF } = window.jspdf;
+                    const pdf = new jsPDF('p', 'mm', 'a4');
+                    const pdfWidth = pdf.internal.pageSize.getWidth();
+                    const pdfHeightFactura = (canvasFactura.height * pdfWidth) / canvasFactura.width;
+                    
+                    pdf.addImage(canvasFactura.toDataURL('image/jpeg', 1.0), 'JPEG', 0, 0, pdfWidth, pdfHeightFactura);
+
+                    // --- PROCESAR ALERTA (HOJA 2) ---
+                    if (htmlAlerta !== "") {
+                        const divAlerta = document.createElement('div');
+                        divAlerta.innerHTML = htmlAlerta;
+                        divAlerta.style.position = 'absolute';
+                        divAlerta.style.top = '0';
+                        divAlerta.style.left = '0';
+                        divAlerta.style.width = '794px';
+                        divAlerta.style.zIndex = '-9999';
+                        divAlerta.style.background = '#ffffff';
+                        document.body.appendChild(divAlerta);
+
+                        await new Promise(r => setTimeout(r, 200)); // Esperar renderizado
+
+                        const canvasAlerta = await html2canvas(divAlerta, { scale: 2, useCORS: true, backgroundColor: '#ffffff', logging: false });
+                        document.body.removeChild(divAlerta);
+
+                        // Agregar una nueva página al PDF y pegar la alerta
+                        pdf.addPage();
+                        const pdfHeightAlerta = (canvasAlerta.height * pdfWidth) / canvasAlerta.width;
+                        pdf.addImage(canvasAlerta.toDataURL('image/jpeg', 1.0), 'JPEG', 0, 0, pdfWidth, pdfHeightAlerta);
+                    }
+
+                    // --- GUARDAR EN EL ZIP ---
+                    const pdfBlob = pdf.output('blob');
+                    folder.file(`Factura_${fact.num_factura}_${fact.nombre.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`, pdfBlob);
+                }
+
+                progresoBarra.style.width = `100%`;
+                progresoTexto.innerText = `Comprimiendo archivo ZIP...`;
+
+                const contenidoZip = await zip.generateAsync({ type: "blob" });
+                saveAs(contenidoZip, `${nombreCarpeta}.zip`);
+                
+                progresoTexto.innerText = `¡Descarga completada!`;
+                setTimeout(() => {
+                    progresoContainer.style.display = 'none';
+                    progresoBarra.style.width = `0%`;
+                }, 3000);
+
+            } catch (error) {
+                console.error("Error generando ZIP:", error);
+                alert("❌ Hubo un error al generar los PDFs. Intenta de nuevo.");
+                progresoContainer.style.display = 'none';
+            } finally {
+                btn.disabled = false;
+            }
+        };
+    </script>
+</body>
+</html>
