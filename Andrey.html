@@ -646,7 +646,14 @@
             const container = document.getElementById('alertas-contenedores');
             const lista = document.getElementById('lista-alertas-contenedores');
 
-            const pendientes = pedidosContenedoresGlobal.filter(p => p.estado === "Pendiente" || !p.estado);
+            // 👇 FILTRO: ocultar Cartago y Paraíso
+            const normalizar = s => (s || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+            const SUCURSALES_OCULTAS = ["cartago", "paraiso"];
+
+            const pendientes = pedidosContenedoresGlobal.filter(p =>
+                (p.estado === "Pendiente" || !p.estado) &&
+                !SUCURSALES_OCULTAS.includes(normalizar(p.sucursal))
+            );
 
             if (pendientes.length === 0) {
                 container.style.display = 'none';
@@ -698,7 +705,13 @@
 
             contenedor.innerHTML = ""; 
 
-            cajasDataGlobal.forEach((data) => {
+            // 👇 FILTRO: ocultar Cartago y Paraíso
+            const normalizar = s => (s || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+            const SUCURSALES_OCULTAS = ["cartago", "paraiso"];
+
+            cajasDataGlobal
+                .filter(data => !SUCURSALES_OCULTAS.includes(normalizar(data.sucursal)))
+                .forEach((data) => {
                 const hora = data.ultima_actualizacion ? new Date(data.ultima_actualizacion.toDate()).toLocaleTimeString() : 'En espera';
                 const envios = data.admin_envios || [];
                 
