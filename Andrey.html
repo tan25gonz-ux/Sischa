@@ -339,6 +339,57 @@
         }
         .kilos-mini-item:last-child { border-bottom: none; }
 
+        /* NUEVO MÓDULO DE INVENTARIO HISTÓRICO */
+        .inventario-historico-box {
+            margin-top: 15px;
+            border: 1px solid #d1d5db;
+            border-radius: 10px;
+            background: #f3f4f6;
+            overflow: hidden;
+        }
+        .inventario-historico-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px;
+            background: #e5e7eb;
+            color: var(--gray-800);
+            font-weight: 800;
+            font-size: 13px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .inventario-historico-header:hover { background: #d1d5db; }
+        .inventario-historico-listado {
+            display: none;
+            max-height: 200px;
+            overflow-y: auto;
+            background: white;
+            padding: 10px;
+            border-top: 1px solid #d1d5db;
+        }
+        .inventario-historico-listado.active { display: block; }
+        
+        .inv-hist-item {
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+            padding: 6px 8px;
+            border-bottom: 1px solid var(--gray-100);
+            font-weight: 600;
+            color: var(--gray-600);
+        }
+        .inv-hist-item:last-child { border-bottom: none; }
+        .inv-hist-total {
+            background: #f8fafc;
+            padding: 8px;
+            font-size: 12px;
+            font-weight: 800;
+            text-align: center;
+            color: var(--gray-800);
+            border-bottom: 1px solid var(--gray-200);
+        }
+
         .actions-box {
             margin-top: 20px;
             display: flex;
@@ -505,7 +556,8 @@
 
         let cajasDataGlobal = [];
         let cierresDelDiaGlobal = []; 
-        let facturasHoyGlobal = []; 
+        let todasLasFacturasGlobal = []; 
+        let inventarioGlobalDB = {}; // NUEVO: Guarda el inventario directo de la BD
         let estadoDiaGlobal = {}; 
         let pedidosContenedoresGlobal = [];
         let kilosSueltoGlobal = [];
@@ -547,12 +599,22 @@
             renderizarPanel(); 
         });
 
-        // 4. Escuchar Facturas Emitidas Hoy
-        const qFacturas = query(collection(db, "facturas_compras"), where("fecha", "==", hoy));
-        onSnapshot(qFacturas, (snapshot) => {
-            facturasHoyGlobal = [];
+        // 4. Escuchar TODAS las Facturas (para el inventario del día)
+        const qTodasFacturas = query(collection(db, "facturas_compras"), limit(1000));
+        onSnapshot(qTodasFacturas, (snapshot) => {
+            todasLasFacturasGlobal = [];
             snapshot.forEach((documento) => {
-                facturasHoyGlobal.push(documento.data());
+                todasLasFacturasGlobal.push(documento.data());
+            });
+            renderizarPanel();
+        });
+
+        // 4.5 NUEVO: Escuchar la colección "inventario" (para el inventario histórico real)
+        onSnapshot(collection(db, "inventario"), (snapshot) => {
+            inventarioGlobalDB = {};
+            snapshot.forEach((documento) => {
+                // El ID del documento es el nombre de la sucursal (ej. "Perez")
+                inventarioGlobalDB[documento.id] = documento.data();
             });
             renderizarPanel();
         });
@@ -584,7 +646,6 @@
             const container = document.getElementById('alertas-contenedores');
             const lista = document.getElementById('lista-alertas-contenedores');
 
-            // Filtrar solo los que están Pendientes
             const pendientes = pedidosContenedoresGlobal.filter(p => p.estado === "Pendiente" || !p.estado);
 
             if (pendientes.length === 0) {
@@ -644,14 +705,14 @@
                 const cierresSucursalHoy = cierresDelDiaGlobal.filter(c => c.sucursal === data.sucursal);
                 const turnoActual = estadoDiaGlobal[data.sucursal] || {}; 
                 
-                const facturasSucursalHoy = facturasHoyGlobal.filter(f => f.sucursal === data.sucursal);
+                // --- CÁLCULOS DEL DÍA ---
+                const facturasSucursalHoy = todasLasFacturasGlobal.filter(f => f.sucursal === data.sucursal && f.fecha === hoy);
                 
                 let inventarioHoy = {};
                 let totalComprasDia = 0;
 
                 facturasSucursalHoy.forEach(f => {
                     totalComprasDia += parseFloat(f.total_factura) || 0;
-                    
                     if (f.detalles_materiales) {
                         f.detalles_materiales.forEach(m => {
                             const mat = m.material || 'SIN MATERIAL';
@@ -662,6 +723,42 @@
                     }
                 });
 
+                // --- CÁLCULOS HISTÓRICOS (DESDE LA COLECCIÓN "INVENTARIO" EN BD) ---
+                const inventarioSucursalBD = inventarioGlobalDB[data.sucursal]?.materiales || {};
+                
+                let inventarioHistoricoAgrupado = {};
+                let totalKgHistorico = 0;
+
+                // Agrupamos ignorando mayúsculas/minúsculas para evitar duplicados visuales
+                Object.entries(inventarioSucursalBD).forEach(([mat, kg]) => {
+                    const kgNum = parseFloat(kg) || 0;
+                    if (kgNum > 0) {
+                        const matUpper = mat.toUpperCase().trim();
+                        if (!inventarioHistoricoAgrupado[matUpper]) inventarioHistoricoAgrupado[matUpper] = 0;
+                        inventarioHistoricoAgrupado[matUpper] += kgNum;
+                    }
+                });
+
+                let invHistHtml = '';
+                const entradasHist = Object.entries(inventarioHistoricoAgrupado);
+                
+                if (entradasHist.length === 0) {
+                    invHistHtml = `<div style="padding:10px; text-align:center; font-size:12px; color:var(--gray-400);">Sin historial de compras</div>`;
+                } else {
+                    // Ordenar alfabéticamente
+                    entradasHist.sort((a, b) => a[0].localeCompare(b[0])); 
+                    entradasHist.forEach(([mat, kg]) => {
+                        totalKgHistorico += kg;
+                        invHistHtml += `
+                            <div class="inv-hist-item">
+                                <span>${mat}</span>
+                                <span style="color:var(--gray-800); font-weight:800;">${kg.toFixed(2)} kg</span>
+                            </div>
+                        `;
+                    });
+                }
+
+                // --- CÁLCULOS DE VENTAS Y GASTOS DEL DÍA ---
                 let listaVentasDetalle = [];
                 let listaGastosDetalle = [];
                 let totalVentasDia = 0;
@@ -812,6 +909,7 @@
                             </div>
                         </div>
 
+                        <!-- INVENTARIO DEL DÍA -->
                         <div class="inventario-container" style="margin-top:0; border-top:none;">
                             <button class="btn-toggle-inventario" onclick="toggleInventario('${data.sucursal}')">
                                 <span>📦 Materiales Comprados Hoy</span>
@@ -832,6 +930,18 @@
                             </div>
                             <div id="kilos-${data.sucursal}" class="kilos-listado-mini">
                                 ${kilosHtml}
+                            </div>
+                        </div>
+
+                        <!-- NUEVO MÓDULO DE INVENTARIO TOTAL (HISTÓRICO REAL) -->
+                        <div class="inventario-historico-box">
+                            <div class="inventario-historico-header" onclick="toggleInventarioHistorico('${data.sucursal}')">
+                                <span>📦 Inventario Total (Histórico)</span>
+                                <span id="flecha-invhist-${data.sucursal}">▼</span>
+                            </div>
+                            <div id="invhist-${data.sucursal}" class="inventario-historico-listado">
+                                <div class="inv-hist-total">Total Histórico: ${totalKgHistorico.toFixed(2)} kg</div>
+                                ${invHistHtml}
                             </div>
                         </div>
 
@@ -873,10 +983,21 @@
             }
         };
 
-        // NUEVA FUNCIÓN PARA EL ACORDEÓN DE KILOS
         window.toggleKilos = function(sucursal) {
             const div = document.getElementById(`kilos-${sucursal}`);
             const flecha = document.getElementById(`flecha-kilos-${sucursal}`);
+            if (div.classList.contains('active')) {
+                div.classList.remove('active');
+                flecha.innerText = '▼';
+            } else {
+                div.classList.add('active');
+                flecha.innerText = '▲';
+            }
+        };
+
+        window.toggleInventarioHistorico = function(sucursal) {
+            const div = document.getElementById(`invhist-${sucursal}`);
+            const flecha = document.getElementById(`flecha-invhist-${sucursal}`);
             if (div.classList.contains('active')) {
                 div.classList.remove('active');
                 flecha.innerText = '▼';
