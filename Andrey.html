@@ -1087,6 +1087,7 @@
             try {
                 const cajaRef = doc(db, "cajas_en_vivo", sucursalSeleccionada);
                 
+                // 1. Actualizar la caja en vivo (como siempre)
                 await updateDoc(cajaRef, {
                     depositos: increment(montoAInyectar),
                     caja_disponible: increment(montoAInyectar),
@@ -1097,7 +1098,15 @@
                     })
                 });
 
-                alert(`✅ Se enviaron ₡${montoAInyectar.toLocaleString('es-CR')} a la sucursal ${sucursalSeleccionada}.`);
+                // 2. Guardar el registro en la nueva colección "historial_inyecciones"
+                await addDoc(collection(db, "historial_inyecciones"), {
+                    sucursal: sucursalSeleccionada,
+                    monto: montoAInyectar,
+                    motivo: motivo || "Envío de administración",
+                    fecha: new Date()
+                });
+
+                alert(`✅ Se enviaron ₡${montoAInyectar.toLocaleString('es-CR')} a la sucursal ${sucursalSeleccionada}.\nSe guardó el registro histórico.`);
                 cerrarModal();
             } catch (error) {
                 console.error(error);
@@ -1128,7 +1137,8 @@
                         depositos: increment(-monto),
                         caja_disponible: increment(-monto)
                     });
-                    alert("✅ Envío eliminado correctamente.");
+                    alert("✅ Envío eliminado correctamente de la caja.");
+                    // NOTA: Si se elimina de la caja, el registro histórico no se borra automáticamente.
                 }
             } catch (error) {
                 console.error(error);
